@@ -100,6 +100,12 @@ function is_admin(): bool
     return !empty($_SESSION['admin']);
 }
 
+/** Role do admin logado ('admin' ou 'subadmin') ou null. */
+function admin_role(): ?string
+{
+    return isset($_SESSION['admin']['role']) ? (string) $_SESSION['admin']['role'] : null;
+}
+
 function client_ip(): string
 {
     return $_SERVER['HTTP_CF_CONNECTING_IP']

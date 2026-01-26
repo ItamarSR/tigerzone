@@ -15,4 +15,15 @@ abstract class BaseAdminController extends BaseController
             \redirect(\base_url('/admin'));
         }
     }
+
+    /** Exige que o admin logado tenha role = $role (ex.: 'admin'). */
+    protected function requireAdminRole(string $role): void
+    {
+        $this->requireAdmin();
+        $r = $_SESSION['admin']['role'] ?? null;
+        if ($r !== $role) {
+            \flash_set('error', 'Acesso restrito.');
+            \redirect(\base_url('/admin/dashboard'));
+        }
+    }
 }

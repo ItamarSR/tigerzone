@@ -115,6 +115,7 @@ class AuthController extends BaseController
         );
         $wallet = new Wallet();
         $wallet->createForUser($userId);
+        $wallet->addPoints($userId, 250, 'BONUS_CADASTRO');
         $user = $userModel->findById($userId);
 
         $bonusGiven = false;
@@ -143,7 +144,7 @@ class AuthController extends BaseController
         }
 
         $_SESSION['user'] = $user;
-        flash_set('success', 'Conta criada com sucesso!');
+        flash_set('success', 'Conta criada com sucesso! Bónus de 250 pontos creditados.');
         redirect(base_url('/'));
     }
 

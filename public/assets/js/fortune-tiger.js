@@ -1,6 +1,6 @@
 /**
- * Fortune Tiger – Slot com valores R$ 1–20, colunas 3/4/5, pontos (1 R$ = 10 pts).
- * Rolos giram e param devagar; sons de spin, paragem, vitória e derrota.
+ * Fortune Tiger – Aposta em pontos 1×–50×, ganhos em pts, pool, R$→pts.
+ * Rolos centralizados; giro melhorado.
  */
 (function () {
     'use strict';
@@ -12,20 +12,27 @@
     const spinBtn = document.getElementById('ft-spin');
     const balanceEl = document.getElementById('ft-balance');
     const pointsEl = document.getElementById('ft-points');
-    const pointsSpinEl = document.getElementById('ft-points-spin');
     const winEl = document.getElementById('ft-win');
     const reelsEl = document.getElementById('ft-reels');
     const historyList = document.querySelector('.ft-history-list');
     const columnsInput = document.getElementById('ft-columns-input');
     const betInput = document.getElementById('ft-bet');
-    if (!form || !spinBtn || !balanceEl || !winEl || !reelsEl) return;
+    const prizePoolEl = document.getElementById('ft-prize-pool');
+    const convertBtn = document.getElementById('ft-convert-btn');
+    const convertForm = document.getElementById('ft-convert-form');
+    const convertAmount = document.getElementById('ft-convert-amount');
+    const convertSubmit = document.getElementById('ft-convert-submit');
+    if (!form || !spinBtn || !winEl || !reelsEl) return;
 
-    const POINTS_RATE = C.pointsRate || 10;
-    const SPIN_INTERVAL_MS = 110;
-    const STOP_DELAY_MS = 700;
+    const SPIN_INTERVAL_MS = 100;
+    const STOP_DELAY_MS = 750;
 
     function getReelElements() {
         return Array.from(reelsEl.querySelectorAll('.ft-reel'));
+    }
+
+    function getVisibleReels() {
+        return getReelElements().filter(function (r) { return !r.classList.contains('ft-reel-hidden'); });
     }
 
     function getSymbolElements(reelEl) {
@@ -33,8 +40,7 @@
     }
 
     function formatMoney(n) {
-        return (typeof n === 'number' ? n : parseFloat(n))
-            .toFixed(2).replace('.', ',');
+        return (typeof n === 'number' ? n : parseFloat(n)).toFixed(2).replace('.', ',');
     }
 
     function setSymbol(el, value) {
@@ -74,21 +80,26 @@
         btns.forEach(function (b) {
             b.classList.toggle('active', parseInt(b.getAttribute('data-cols'), 10) === cols);
         });
+        // Ajusta o tamanho do cabinet para melhor visualização
+        var cabinet = document.querySelector('.ft-cabinet');
+        if (cabinet) {
+            cabinet.style.maxWidth = cols === 3 ? 'min(520px, 92vw)' : cols === 4 ? 'min(680px, 95vw)' : 'min(840px, 98vw)';
+        }
         return cols;
     }
 
-    function parseBalance() {
-        const raw = (balanceEl && balanceEl.textContent) ? balanceEl.textContent.trim() : '';
-        const normalized = raw.replace(/\./g, '').replace(',', '.');
-        return parseFloat(normalized) || 0;
+    function updateBalanceDisplay(bal) {
+        if (!balanceEl) return;
+        balanceEl.textContent = (typeof bal === 'number' ? bal : parseFloat(bal) || 0).toFixed(2).replace('.', ',');
     }
 
-    function updatePointsDisplay() {
-        const balance = parseBalance();
-        const bet = parseFloat(betInput?.value || 0) || 0;
-        const pts = Math.round(balance * POINTS_RATE);
-        if (pointsEl) pointsEl.textContent = pts + ' pts';
-        if (pointsSpinEl) pointsSpinEl.textContent = Math.round(bet * POINTS_RATE) + ' pts';
+    function updatePointsDisplay(pts) {
+        if (pointsEl) pointsEl.textContent = (typeof pts === 'number' ? pts : parseInt(pts, 10) || 0) + ' pts';
+    }
+
+    function updatePrizePool(val) {
+        if (!prizePoolEl) return;
+        prizePoolEl.textContent = (typeof val === 'number' ? val : parseFloat(val) || 0).toFixed(2).replace('.', ',');
     }
 
     /* Web Audio */
@@ -123,14 +134,14 @@
     function soundWin() {
         const ctx = initAudio();
         if (!ctx) return;
-        const base = 330;
+        var base = 330;
         [0, 2, 4, 7].forEach(function (semi, i) {
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
+            var o = ctx.createOscillator();
+            var g = ctx.createGain();
             o.connect(g); g.connect(ctx.destination);
             o.frequency.value = base * Math.pow(2, semi / 12);
             o.type = 'sine';
-            const t = ctx.currentTime + i * 0.08;
+            var t = ctx.currentTime + i * 0.08;
             g.gain.setValueAtTime(0, t);
             g.gain.linearRampToValueAtTime(0.1, t + 0.02);
             g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
@@ -140,8 +151,8 @@
     function soundLose() {
         const ctx = initAudio();
         if (!ctx) return;
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
         o.connect(g); g.connect(ctx.destination);
         o.frequency.value = 220; o.type = 'sine';
         g.gain.setValueAtTime(0.08, ctx.currentTime);
@@ -150,9 +161,9 @@
     }
 
     function spinAnimation(intervalMs) {
-        const reels = getReelElements().filter(function (r) { return !r.classList.contains('ft-reel-hidden'); });
+        const reels = getVisibleReels();
         const timers = [];
-        let tickCount = 0;
+        var tickCount = 0;
         reels.forEach(function (r) {
             r.classList.add('spinning');
             timers.push(setInterval(function () {
@@ -163,10 +174,7 @@
         });
         return {
             stopReel: function (index) {
-                if (timers[index]) {
-                    clearInterval(timers[index]);
-                    timers[index] = null;
-                }
+                if (timers[index]) { clearInterval(timers[index]); timers[index] = null; }
                 if (reels[index]) reels[index].classList.remove('spinning');
             },
             stopAll: function () {
@@ -179,8 +187,8 @@
     }
 
     function stopReelsOneByOne(reelsData, spin, onComplete) {
-        const reels = getReelElements().filter(function (r) { return !r.classList.contains('ft-reel-hidden'); });
-        let idx = 0;
+        const reels = getVisibleReels();
+        var idx = 0;
         function stopNext() {
             if (idx >= reels.length) {
                 spin.stopAll();
@@ -188,8 +196,8 @@
                 if (onComplete) onComplete();
                 return;
             }
-            const r = reels[idx];
-            const vals = reelsData[idx];
+            var r = reels[idx];
+            var vals = reelsData[idx];
             spin.stopReel(idx);
             applyReelResult(r, vals);
             r.classList.add('win');
@@ -212,44 +220,70 @@
         winEl.style.display = 'block';
     }
 
-    function updateBalance(val) {
-        const n = typeof val === 'number' ? val : parseFloat(val);
-        balanceEl.textContent = (isNaN(n) ? 0 : n).toFixed(2).replace('.', ',');
-        updatePointsDisplay();
-    }
-
-    function prependHistory(winAmount) {
+    function prependHistory(winReais, poolBonus) {
         if (!historyList) return;
-        const sp = document.createElement('span');
+        var sp = document.createElement('span');
         sp.className = 'ft-history-item';
-        sp.textContent = C.currency + ' ' + (typeof winAmount === 'number' ? formatMoney(winAmount) : winAmount);
+        sp.textContent = (winReais > 0 ? C.currency + ' ' + formatMoney(winReais) : '—') + (poolBonus > 0 ? ' +' + poolBonus : '');
         historyList.insertBefore(sp, historyList.firstChild);
-        const items = historyList.querySelectorAll('.ft-history-item');
-        for (let i = 5; i < items.length; i++) items[i].remove();
-        const empty = historyList.querySelector('.ft-history-empty');
+        var items = historyList.querySelectorAll('.ft-history-item');
+        for (var i = 5; i < items.length; i++) items[i].remove();
+        var empty = historyList.querySelector('.ft-history-empty');
         if (empty) empty.remove();
     }
 
     setColumns(3);
 
+    if (convertBtn && convertForm && convertAmount && C.convertUrl) {
+        convertBtn.addEventListener('click', function () {
+            convertForm.style.display = convertForm.style.display === 'none' ? 'flex' : 'none';
+        });
+        convertForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var amount = parseFloat(convertAmount.value) || 0;
+            if (amount < 1 || amount > 10000) {
+                showError('Valor entre R$ 1 e R$ 10.000.');
+                return;
+            }
+            var fd = new FormData(convertForm);
+            fetch(C.convertUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.error) { showError(d.error); return; }
+                    updateBalanceDisplay(d.balance);
+                    updatePointsDisplay(d.points);
+                    convertForm.style.display = 'none';
+                    convertAmount.value = '';
+                    showWin('+ ' + d.points_added + ' pts!', true);
+                    setTimeout(function () { winEl.className = 'ft-win'; winEl.textContent = ''; }, 2000);
+                })
+                .catch(function () { showError('Erro ao converter.'); });
+        });
+    }
+
     form.querySelectorAll('.ft-col-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             setColumns(parseInt(btn.getAttribute('data-cols'), 10));
-            updatePointsDisplay();
         });
     });
-    if (betInput) {
-        betInput.addEventListener('input', updatePointsDisplay);
-        betInput.addEventListener('change', updatePointsDisplay);
-    }
-    updatePointsDisplay();
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const bet = parseFloat(betInput?.value || 0) || 0;
-        const cols = parseInt(columnsInput?.value || 3, 10);
-        if (bet < 1 || bet > 20) {
-            showError('Aposta entre R$ 1 e R$ 20.');
+        var bet = parseInt(betInput?.value || 0, 10) || 0;
+        var cols = parseInt(columnsInput?.value || 3, 10);
+        if (bet < 1 || bet > 50) {
+            showError('Aposta entre 1× e 50× (pontos).');
+            return;
+        }
+        // Cobra 100 pontos por coluna adicional (4 colunas = 100, 5 colunas = 200)
+        var extraColumnsCost = 0;
+        if (cols > 3) {
+            extraColumnsCost = (cols - 3) * 100;
+        }
+        var totalCost = bet + extraColumnsCost;
+        var pts = parseInt(pointsEl?.textContent || '0', 10) || 0;
+        if (pts < totalCost) {
+            showError('Pontos insuficientes. Converta R$ em pontos.');
             return;
         }
 
@@ -257,17 +291,14 @@
         winEl.className = 'ft-win';
         winEl.textContent = '';
 
-        const spin = spinAnimation(SPIN_INTERVAL_MS);
-
-        const fd = new FormData(form);
+        var spin = spinAnimation(SPIN_INTERVAL_MS);
+        var fd = new FormData(form);
         fd.set('columns', String(Math.max(3, Math.min(5, cols))));
-        let data;
+        fd.set('bet', String(bet)); // Envia apenas a aposta base, o controller calcula o custo das colunas
+
+        var data;
         try {
-            const res = await fetch(C.playUrl, {
-                method: 'POST',
-                body: fd,
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-            });
+            var res = await fetch(C.playUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } });
             data = await res.json();
         } catch (err) {
             spin.stopAll();
@@ -280,37 +311,39 @@
         if (data.error) {
             spin.stopAll();
             showError(data.error);
-            if (data.balance != null) updateBalance(data.balance);
+            if (data.points != null) updatePointsDisplay(data.points);
+            if (data.balance != null) updateBalanceDisplay(data.balance);
             spinBtn.disabled = false;
             soundLose();
             return;
         }
 
-        const win = parseFloat(data.win) || 0;
-        const balance = parseFloat(data.balance) || 0;
-        const reels = data.reels;
+        var winReais = parseFloat(data.win) || 0; // Ganho em R$
+        var points = parseInt(data.points, 10) || 0;
+        var poolBonus = parseInt(data.pool_bonus, 10) || 0;
+        var reels = data.reels;
 
         if (reels && Array.isArray(reels) && reels.length >= 3) {
             stopReelsOneByOne(reels, spin, function () {
-                updateBalance(balance);
-                prependHistory(win);
-                showWin(
-                    win > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(win) + '!' : 'Tente novamente!',
-                    win > 0
-                );
-                if (win > 0) soundWin();
+                updatePointsDisplay(points);
+                updateBalanceDisplay(data.balance);
+                if (data.prize_pool != null) updatePrizePool(data.prize_pool);
+                prependHistory(winReais, poolBonus);
+                var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + poolBonus + ' bónus pool!' : '!') : 'Tente novamente!';
+                showWin(msg, winReais > 0);
+                if (winReais > 0) soundWin();
                 else soundLose();
                 spinBtn.disabled = false;
             });
         } else {
             spin.stopAll();
-            updateBalance(balance);
-            prependHistory(win);
-            showWin(
-                win > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(win) + '!' : 'Tente novamente!',
-                win > 0
-            );
-            if (win > 0) soundWin();
+            updatePointsDisplay(points);
+            updateBalanceDisplay(data.balance);
+            if (data.prize_pool != null) updatePrizePool(data.prize_pool);
+            prependHistory(winReais, poolBonus);
+            var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + poolBonus + ' bónus!' : '!') : 'Tente novamente!';
+            showWin(msg, winReais > 0);
+            if (winReais > 0) soundWin();
             else soundLose();
             spinBtn.disabled = false;
         }

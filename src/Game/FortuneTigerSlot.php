@@ -79,7 +79,9 @@ final class FortuneTigerSlot
             $payline[] = $col[1];
         }
         $win = $this->computeWin($payline, $bet, $columns);
-        $multiplier = $bet > 0 ? $win / $bet : 0.0;
+        // Multiplicador baseado no ganho em R$ dividido pela aposta em R$ (bet / 10)
+        $betInReais = $bet / 10.0;
+        $multiplier = $betInReais > 0 ? $win / $betInReais : 0.0;
 
         return [
             'reels' => $reels,
@@ -116,17 +118,20 @@ final class FortuneTigerSlot
         $maxVal = (int) array_key_first($counts);
         $maxCount = $counts[$maxVal];
 
-        if ($maxCount >= 5 && $n >= 5 && isset(self::PAY_5[$maxVal])) {
-            return $bet * self::PAY_5[$maxVal];
-        }
-        if ($maxCount >= 4 && $n >= 4 && isset(self::PAY_4[$maxVal])) {
-            return $bet * self::PAY_4[$maxVal];
-        }
+        // Sempre verifica 3 iguais primeiro, mesmo com 4 ou 5 colunas
+        // Ganho em R$: valor_do_símbolo × multiplicador × aposta_em_pontos / 2
+        // Exemplo: 3× R$ 2,00 com aposta 10× → R$ 2,00 × 2.0 × 10 / 2 = R$ 20,00
+        // Se tiver 3 ou mais iguais, sempre ganha com 3 (não verifica 4 ou 5)
         if ($maxCount >= 3 && isset(self::PAY_3[$maxVal])) {
-            return $bet * self::PAY_3[$maxVal];
+            $symbolValue = (float) $maxVal;
+            $multiplier = self::PAY_3[$maxVal];
+            return $symbolValue * $multiplier * $bet / 2.0;
         }
+        // Apenas para 3 colunas: 2× R$ 20,00
         if ($maxCount === 2 && $n === 3 && $maxVal === 20) {
-            return $bet * self::PAY_2_20;
+            $symbolValue = 20.0;
+            $multiplier = self::PAY_2_20;
+            return $symbolValue * $multiplier * $bet / 2.0;
         }
         return 0.0;
     }

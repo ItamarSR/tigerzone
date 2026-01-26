@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `admins` (
     `email` VARCHAR(255) NOT NULL,
     `password` VARCHAR(255) NOT NULL,
     `name` VARCHAR(120) NOT NULL,
+    `role` ENUM('admin','subadmin') NOT NULL DEFAULT 'admin',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS `wallets` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` INT UNSIGNED NOT NULL,
     `balance` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `points` INT UNSIGNED NOT NULL DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -166,7 +168,9 @@ INSERT INTO `settings` (`key`,`value`) VALUES
 ('site_logo_url',''),
 ('stats_online_base','42'),
 ('stats_wins_base','12850'),
-('stats_deposits_base','89420')
+('stats_deposits_base','89420'),
+('prize_pool','0'),
+('prize_pool_last_milestone','0')
 ON DUPLICATE KEY UPDATE `value`=VALUES(`value`);
 
 SET FOREIGN_KEY_CHECKS = 1;

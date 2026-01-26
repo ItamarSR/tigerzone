@@ -53,6 +53,7 @@ $router->post('/carteira/deposito', 'WalletController@deposit');
 $router->get('/carteira/saque', 'WalletController@withdrawForm');
 $router->post('/carteira/saque', 'WalletController@withdraw');
 $router->get('/carteira/historico', 'WalletController@history');
+$router->post('/api/carteira/convert-points', 'WalletController@convertToPoints');
 
 $router->get('/convites', 'InviteController@index');
 $router->post('/convites/gerar', 'InviteController@generate');
@@ -80,6 +81,9 @@ $router->post('/admin/banimentos', 'Admin\BansController@store');
 $router->get('/admin/estatisticas', 'Admin\StatsController@index');
 $router->get('/admin/configuracoes', 'Admin\SettingsController@index');
 $router->post('/admin/configuracoes', 'Admin\SettingsController@save');
+$router->get('/admin/administradores', 'Admin\AdminsController@index');
+$router->post('/admin/administradores', 'Admin\AdminsController@store');
+$router->get('/admin/ganhadores', 'Admin\WinnersController@index');
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $uri = $_SERVER['REQUEST_URI'] ?? '/';

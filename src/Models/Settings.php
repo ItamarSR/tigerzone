@@ -41,4 +41,10 @@ class Settings
     {
         return (int) ($this->get($key, (string) $default) ?? $default);
     }
+
+    public function getFloat(string $key, float $default = 0.0): float
+    {
+        $v = $this->get($key, null);
+        return $v !== null ? (float) $v : $default;
+    }
 }

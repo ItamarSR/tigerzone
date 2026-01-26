@@ -51,13 +51,41 @@ class Game
     public function recentWins(int $limit = 10): array
     {
         $stmt = $this->db->prepare(
-            'SELECT gl.*, g.name as game_name, u.name as user_name FROM game_logs gl 
+            'SELECT gl.*, g.name as game_name, u.name as user_name, u.email as user_email FROM game_logs gl 
              JOIN games g ON g.id = gl.game_id 
              JOIN users u ON u.id = gl.user_id 
              WHERE gl.win > 0 ORDER BY gl.created_at DESC LIMIT ?'
         );
         $stmt->execute([$limit]);
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Todos os ganhadores (win > 0), paginado. Inclui user (name, email), game (name).
+     * @return array<int, array>
+     */
+    public function allWinners(int $limit = 100, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT gl.id, gl.user_id, gl.game_id, gl.bet, gl.win, gl.balance_before, gl.balance_after, gl.metadata, gl.created_at,
+                    g.name as game_name, g.slug as game_slug,
+                    u.name as user_name, u.email as user_email
+             FROM game_logs gl 
+             JOIN games g ON g.id = gl.game_id 
+             JOIN users u ON u.id = gl.user_id 
+             WHERE gl.win > 0 
+             ORDER BY gl.created_at DESC 
+             LIMIT ? OFFSET ?'
+        );
+        $stmt->execute([$limit, $offset]);
+        return $stmt->fetchAll();
+    }
+
+    /** Total de registos de ganhadores (win > 0). */
+    public function countWinners(): int
+    {
+        $stmt = $this->db->query('SELECT COUNT(*) FROM game_logs WHERE win > 0');
+        return (int) $stmt->fetchColumn();
     }
 
     /** Soma real de ganhos (game_logs) nas últimas N horas. */

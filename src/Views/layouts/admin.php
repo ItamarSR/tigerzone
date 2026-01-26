@@ -18,9 +18,13 @@
                 <a href="<?= base_url('/admin/dashboard') ?>">Dashboard</a>
                 <a href="<?= base_url('/admin/usuarios') ?>">Usuários</a>
                 <a href="<?= base_url('/admin/jogos') ?>">Jogos</a>
+                <a href="<?= base_url('/admin/ganhadores') ?>">Ganhadores</a>
                 <a href="<?= base_url('/admin/convites') ?>">Convites</a>
                 <a href="<?= base_url('/admin/banimentos') ?>">Banimentos</a>
                 <a href="<?= base_url('/admin/estatisticas') ?>">Estatísticas</a>
+                <?php if (admin_role() === 'admin'): ?>
+                <a href="<?= base_url('/admin/administradores') ?>">Administradores</a>
+                <?php endif; ?>
                 <a href="<?= base_url('/admin/configuracoes') ?>">Configurações</a>
                 <a href="<?= base_url('/admin/logout') ?>">Sair</a>
             </nav>
