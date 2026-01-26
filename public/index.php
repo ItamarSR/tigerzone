@@ -53,7 +53,6 @@ $router->post('/carteira/deposito', 'WalletController@deposit');
 $router->get('/carteira/saque', 'WalletController@withdrawForm');
 $router->post('/carteira/saque', 'WalletController@withdraw');
 $router->get('/carteira/historico', 'WalletController@history');
-$router->post('/api/carteira/convert-points', 'WalletController@convertToPoints');
 
 $router->get('/convites', 'InviteController@index');
 $router->post('/convites/gerar', 'InviteController@generate');

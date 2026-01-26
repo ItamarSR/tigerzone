@@ -68,24 +68,22 @@ final class PrizePool
     }
 
     /**
-     * Concede bónus do pool a um jogador (em pontos). Retorna pontos adicionados.
-     * Deduz do pool em R$; converte 1 R$ = 10 pts.
+     * Concede bónus do pool a um jogador (em R$). Retorna o valor creditado.
      */
-    public function grantBonusToPlayer(int $userId): int
+    public function grantBonusToPlayer(int $userId): float
     {
         $this->releaseMilestones();
         $pool = $this->settings->getFloat('prize_pool', 0.0);
         if ($pool <= 0) {
-            return 0;
+            return 0.0;
         }
         $bonusReal = min($pool * 0.02, 50.0);
         if ($bonusReal < 0.01) {
-            return 0;
+            return 0.0;
         }
-        $bonusPoints = (int) round($bonusReal * Wallet::pointsPerReal());
         $newPool = max(0.0, $pool - $bonusReal);
         $this->settings->set('prize_pool', (string) round($newPool, 2));
-        $this->wallet->addPoints($userId, $bonusPoints, 'PRIZE_POOL');
-        return $bonusPoints;
+        $this->wallet->add($userId, round($bonusReal, 2), 'bonus', 'PRIZE_POOL', ['source' => 'prize_pool']);
+        return round($bonusReal, 2);
     }
 }

@@ -63,7 +63,6 @@ class GamesController extends BaseController
         $user = auth();
         $wallet = new Wallet();
         $balance = $wallet->getBalance((int) $user['id']);
-        $points = $wallet->getPoints((int) $user['id']);
         $history = $gameModel->historyByUserAndGame((int) $user['id'], (int) $game['id'], 20);
         $prizePool = new PrizePool();
         $pool = $prizePool->getPool();
@@ -72,7 +71,6 @@ class GamesController extends BaseController
             'title' => 'Fortune Tiger',
             'game' => $game,
             'balance' => $balance,
-            'points' => $points,
             'history' => $history,
             'prize_pool' => $pool,
             'total_deposits' => $totalDeposits,
@@ -134,51 +132,56 @@ class GamesController extends BaseController
         $wallet = new Wallet();
 
         if ($gameSlug === 'fortune-tiger') {
-            $betPoints = (int) round($bet);
-            $betMin = 1;
-            $betMax = 50;
-            if ($betPoints < $betMin || $betPoints > $betMax) {
+            $betReais = round((float) $bet, 2);
+            $betMin = 1.0;
+            $betMax = 50.0;
+            if ($betReais < $betMin || $betReais > $betMax) {
                 if ($this->wantsJson()) {
-                    $this->json(['error' => 'Aposta deve ser entre 1 e 50 pontos (1× a 50×).'], 400);
+                    $this->json(['error' => 'Aposta deve ser entre R$ 1,00 e R$ 50,00.'], 400);
                 }
-                flash_set('error', 'Aposta entre 1× e 50×.');
+                flash_set('error', 'Aposta deve ser entre R$ 1,00 e R$ 50,00.');
                 redirect(base_url('/jogo/fortune-tiger'));
             }
             $columns = max(3, min(5, $columns));
             
-            // Cobra 100 pontos por coluna adicional (4 colunas = 100, 5 colunas = 200)
-            $extraColumnsCost = 0;
-            if ($columns > 3) {
-                $extraColumnsCost = ($columns - 3) * 100;
-                $betPoints += $extraColumnsCost;
+            // Custo adicional por colunas extras (em R$): 4 colunas +R$ 50,00; 5 colunas +R$ 100,00
+            $extraColumnsCost = 0.0;
+            if ($columns === 4) {
+                $extraColumnsCost = 50.0;
+            } elseif ($columns === 5) {
+                $extraColumnsCost = 100.0;
             }
-            
-            $points = $wallet->getPoints((int) $user['id']);
-            if ($points < $betPoints) {
+            $totalCost = round($betReais + $extraColumnsCost, 2);
+
+            $beforeBalance = $wallet->getBalance((int) $user['id']);
+            if ($beforeBalance < $totalCost) {
                 if ($this->wantsJson()) {
-                    $this->json(['error' => 'Pontos insuficientes', 'points' => $points], 400);
+                    $this->json(['error' => 'Saldo insuficiente', 'balance' => $beforeBalance], 400);
                 }
-                flash_set('error', 'Pontos insuficientes. Converta R$ em pontos.');
+                flash_set('error', 'Saldo insuficiente.');
                 redirect(base_url('/jogo/fortune-tiger'));
             }
             
-            $sub = $wallet->subtractPoints((int) $user['id'], $betPoints, 'GAME:fortune-tiger');
+            $sub = $wallet->subtract((int) $user['id'], $totalCost, 'bet', 'GAME:fortune-tiger', [
+                'game_id' => (int) $game['id'],
+                'bet_base' => $betReais,
+                'columns' => $columns,
+                'extra_columns_cost' => $extraColumnsCost,
+            ]);
             if (!$sub['success']) {
                 if ($this->wantsJson()) {
-                    $this->json(['error' => $sub['error'] ?? 'Erro', 'points' => $points], 400);
+                    $this->json(['error' => $sub['error'] ?? 'Erro', 'balance' => $beforeBalance], 400);
                 }
                 redirect(base_url('/jogo/fortune-tiger'));
             }
-            $beforePoints = $points;
-            $afterPoints = $sub['new_points'];
+            $afterBalance = $sub['new_balance'];
             $slot = new FortuneTigerSlot();
             // Passa apenas a aposta base (sem o custo das colunas extras) para o cálculo do ganho
-            $result = $slot->spin((float) ($betPoints - $extraColumnsCost), $columns);
+            $result = $slot->spin($betReais, $columns);
             $winReais = (float) $result['win']; // Ganho em R$
             $mult = $result['multiplier'];
             $reels = $result['reels'];
             $poolBonus = 0;
-            $beforeBalance = $wallet->getBalance((int) $user['id']);
             if ($winReais > 0) {
                 // Adiciona ganho em R$ diretamente ao saldo (balance), não aos pontos
                 $addResult = $wallet->add((int) $user['id'], $winReais, 'win', 'GAME:fortune-tiger', ['game_id' => $game['id']]);
@@ -188,23 +191,20 @@ class GamesController extends BaseController
                 if ($poolBonus > 0) {
                     $afterBalance = $wallet->getBalance((int) $user['id']);
                 }
-            } else {
-                $afterBalance = $beforeBalance;
             }
-            $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $betPoints, (float) $winReais, (float) $beforePoints, (float) $afterPoints, [
+            $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $totalCost, (float) $winReais, (float) $beforeBalance, (float) $afterBalance, [
                 'multiplier' => $mult,
                 'reels' => $reels,
                 'pool_bonus' => $poolBonus,
-                'balance_before' => $beforeBalance,
-                'balance_after' => $afterBalance,
+                'bet_base' => $betReais,
+                'columns' => $columns,
+                'extra_columns_cost' => $extraColumnsCost,
             ]);
             $_SESSION['user']['balance'] = $afterBalance;
-            $_SESSION['user']['points'] = $afterPoints;
             if ($this->wantsJson()) {
                 $prizePool = new PrizePool();
                 $this->json([
                     'win' => $winReais, // Retorna ganho em R$
-                    'points' => $afterPoints,
                     'balance' => $afterBalance,
                     'multiplier' => $mult,
                     'pool_bonus' => $poolBonus,
@@ -214,7 +214,7 @@ class GamesController extends BaseController
             }
             $currency = config('app.currency_display');
             flash_set('success', $winReais > 0
-                ? 'Ganhou ' . $currency . ' ' . number_format($winReais, 2, ',', '.') . ($poolBonus > 0 ? ' + ' . $poolBonus . ' bónus pool!' : '!')
+                ? 'Ganhou ' . $currency . ' ' . number_format($winReais, 2, ',', '.') . ($poolBonus > 0 ? ' + ' . $currency . ' ' . number_format((float) $poolBonus, 2, ',', '.') . ' bónus pool!' : '!')
                 : 'Tente novamente!');
             redirect(base_url('/jogo/fortune-tiger'));
         }

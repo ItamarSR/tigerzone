@@ -1,5 +1,5 @@
 /**
- * Fortune Tiger – Aposta em pontos 1×–50×, ganhos em pts, pool, R$→pts.
+ * Fortune Tiger – Aposta em R$, ganhos em R$, pool.
  * Rolos centralizados; giro melhorado.
  */
 (function () {
@@ -11,17 +11,12 @@
     const form = document.getElementById('ft-play-form');
     const spinBtn = document.getElementById('ft-spin');
     const balanceEl = document.getElementById('ft-balance');
-    const pointsEl = document.getElementById('ft-points');
     const winEl = document.getElementById('ft-win');
     const reelsEl = document.getElementById('ft-reels');
     const historyList = document.querySelector('.ft-history-list');
     const columnsInput = document.getElementById('ft-columns-input');
     const betInput = document.getElementById('ft-bet');
     const prizePoolEl = document.getElementById('ft-prize-pool');
-    const convertBtn = document.getElementById('ft-convert-btn');
-    const convertForm = document.getElementById('ft-convert-form');
-    const convertAmount = document.getElementById('ft-convert-amount');
-    const convertSubmit = document.getElementById('ft-convert-submit');
     if (!form || !spinBtn || !winEl || !reelsEl) return;
 
     const SPIN_INTERVAL_MS = 100;
@@ -41,6 +36,15 @@
 
     function formatMoney(n) {
         return (typeof n === 'number' ? n : parseFloat(n)).toFixed(2).replace('.', ',');
+    }
+
+    function parseMoneyBr(text) {
+        if (!text) return 0;
+        var s = String(text).replace(/[^\d.,-]/g, '').trim();
+        // Remove separador de milhar e normaliza decimal
+        s = s.replace(/\./g, '').replace(',', '.');
+        var v = parseFloat(s);
+        return isNaN(v) ? 0 : v;
     }
 
     function setSymbol(el, value) {
@@ -91,10 +95,6 @@
     function updateBalanceDisplay(bal) {
         if (!balanceEl) return;
         balanceEl.textContent = (typeof bal === 'number' ? bal : parseFloat(bal) || 0).toFixed(2).replace('.', ',');
-    }
-
-    function updatePointsDisplay(pts) {
-        if (pointsEl) pointsEl.textContent = (typeof pts === 'number' ? pts : parseInt(pts, 10) || 0) + ' pts';
     }
 
     function updatePrizePool(val) {
@@ -224,7 +224,7 @@
         if (!historyList) return;
         var sp = document.createElement('span');
         sp.className = 'ft-history-item';
-        sp.textContent = (winReais > 0 ? C.currency + ' ' + formatMoney(winReais) : '—') + (poolBonus > 0 ? ' +' + poolBonus : '');
+        sp.textContent = (winReais > 0 ? C.currency + ' ' + formatMoney(winReais) : '—') + (poolBonus > 0 ? ' +' + C.currency + ' ' + formatMoney(poolBonus) : '');
         historyList.insertBefore(sp, historyList.firstChild);
         var items = historyList.querySelectorAll('.ft-history-item');
         for (var i = 5; i < items.length; i++) items[i].remove();
@@ -234,33 +234,6 @@
 
     setColumns(3);
 
-    if (convertBtn && convertForm && convertAmount && C.convertUrl) {
-        convertBtn.addEventListener('click', function () {
-            convertForm.style.display = convertForm.style.display === 'none' ? 'flex' : 'none';
-        });
-        convertForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var amount = parseFloat(convertAmount.value) || 0;
-            if (amount < 1 || amount > 10000) {
-                showError('Valor entre R$ 1 e R$ 10.000.');
-                return;
-            }
-            var fd = new FormData(convertForm);
-            fetch(C.convertUrl, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (d.error) { showError(d.error); return; }
-                    updateBalanceDisplay(d.balance);
-                    updatePointsDisplay(d.points);
-                    convertForm.style.display = 'none';
-                    convertAmount.value = '';
-                    showWin('+ ' + d.points_added + ' pts!', true);
-                    setTimeout(function () { winEl.className = 'ft-win'; winEl.textContent = ''; }, 2000);
-                })
-                .catch(function () { showError('Erro ao converter.'); });
-        });
-    }
-
     form.querySelectorAll('.ft-col-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             setColumns(parseInt(btn.getAttribute('data-cols'), 10));
@@ -269,21 +242,20 @@
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        var bet = parseInt(betInput?.value || 0, 10) || 0;
+        var bet = parseMoneyBr(betInput?.value || '0');
         var cols = parseInt(columnsInput?.value || 3, 10);
         if (bet < 1 || bet > 50) {
-            showError('Aposta entre 1× e 50× (pontos).');
+            showError('Aposta deve ser entre R$ 1,00 e R$ 50,00.');
             return;
         }
-        // Cobra 100 pontos por coluna adicional (4 colunas = 100, 5 colunas = 200)
+        // Custo adicional por colunas extras (em R$): 4 colunas +50; 5 colunas +100
         var extraColumnsCost = 0;
-        if (cols > 3) {
-            extraColumnsCost = (cols - 3) * 100;
-        }
+        if (cols === 4) extraColumnsCost = 50;
+        else if (cols === 5) extraColumnsCost = 100;
         var totalCost = bet + extraColumnsCost;
-        var pts = parseInt(pointsEl?.textContent || '0', 10) || 0;
-        if (pts < totalCost) {
-            showError('Pontos insuficientes. Converta R$ em pontos.');
+        var bal = parseMoneyBr(balanceEl?.textContent || '0');
+        if (bal < totalCost) {
+            showError('Saldo insuficiente.');
             return;
         }
 
@@ -311,7 +283,6 @@
         if (data.error) {
             spin.stopAll();
             showError(data.error);
-            if (data.points != null) updatePointsDisplay(data.points);
             if (data.balance != null) updateBalanceDisplay(data.balance);
             spinBtn.disabled = false;
             soundLose();
@@ -319,17 +290,15 @@
         }
 
         var winReais = parseFloat(data.win) || 0; // Ganho em R$
-        var points = parseInt(data.points, 10) || 0;
-        var poolBonus = parseInt(data.pool_bonus, 10) || 0;
+        var poolBonus = parseFloat(data.pool_bonus) || 0;
         var reels = data.reels;
 
         if (reels && Array.isArray(reels) && reels.length >= 3) {
             stopReelsOneByOne(reels, spin, function () {
-                updatePointsDisplay(points);
                 updateBalanceDisplay(data.balance);
                 if (data.prize_pool != null) updatePrizePool(data.prize_pool);
                 prependHistory(winReais, poolBonus);
-                var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + poolBonus + ' bónus pool!' : '!') : 'Tente novamente!';
+                var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + C.currency + ' ' + formatMoney(poolBonus) + ' bónus pool!' : '!') : 'Tente novamente!';
                 showWin(msg, winReais > 0);
                 if (winReais > 0) soundWin();
                 else soundLose();
@@ -337,11 +306,10 @@
             });
         } else {
             spin.stopAll();
-            updatePointsDisplay(points);
             updateBalanceDisplay(data.balance);
             if (data.prize_pool != null) updatePrizePool(data.prize_pool);
             prependHistory(winReais, poolBonus);
-            var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + poolBonus + ' bónus!' : '!') : 'Tente novamente!';
+            var msg = winReais > 0 ? 'Ganhou ' + C.currency + ' ' + formatMoney(winReais) + (poolBonus > 0 ? ' + ' + C.currency + ' ' + formatMoney(poolBonus) + ' bónus!' : '!') : 'Tente novamente!';
             showWin(msg, winReais > 0);
             if (winReais > 0) soundWin();
             else soundLose();

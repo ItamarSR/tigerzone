@@ -5,7 +5,6 @@ $logoUrl = asset('images/logo.png');
 $tigerUrl = asset('images/games/fortune-tiger.png');
 $paytable = \TigerZone\Game\FortuneTigerSlot::getPaytable();
 $currency = config('app.currency_display');
-$pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
 ?>
 <div class="ft-page">
     <header class="ft-topbar">
@@ -15,18 +14,6 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
             <div class="ft-balance">
                 <span class="ft-balance-label">Saldo</span>
                 <span class="ft-balance-value"><?= $currency ?> <strong id="ft-balance"><?= number_format((float) $balance, 2, ',', '.') ?></strong></span>
-            </div>
-            <div class="ft-balance ft-points-balance">
-                <span class="ft-balance-label">Pontos</span>
-                <span class="ft-balance-value"><strong id="ft-points"><?= (int) $points ?> pts</strong></span>
-            </div>
-            <div class="ft-convert">
-                <button type="button" class="ft-convert-btn" id="ft-convert-btn">R$ → pts</button>
-                <form class="ft-convert-form" id="ft-convert-form" style="display:none;">
-                    <?= \TigerZone\Core\Security::csrfField() ?>
-                    <input type="number" name="amount" id="ft-convert-amount" min="1" max="10000" step="1" placeholder="R$" title="1 R$ = <?= $pointsRate ?> pts">
-                    <button type="submit" id="ft-convert-submit">Converter</button>
-                </form>
             </div>
         </div>
         <a href="<?= base_url('/jogos') ?>" class="ft-back">← Voltar</a>
@@ -72,15 +59,15 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
             <input type="hidden" name="game" value="fortune-tiger">
             <input type="hidden" name="columns" id="ft-columns-input" value="3">
             <div class="ft-bet-row">
-                <label>Aposta (pts) 1×–50×</label>
-                <input type="number" name="bet" id="ft-bet" min="1" max="50" step="1" value="5">
+                <label>Aposta (R$) 1,00–50,00</label>
+                <input type="number" name="bet" id="ft-bet" min="1" max="50" step="0.01" value="5.00">
             </div>
             <div class="ft-columns-row">
                 <span class="ft-columns-label">Colunas</span>
                 <div class="ft-columns-btns">
                     <button type="button" class="ft-col-btn active" data-cols="3">3</button>
-                    <button type="button" class="ft-col-btn" data-cols="4">4 (+100 pts)</button>
-                    <button type="button" class="ft-col-btn" data-cols="5">5 (+200 pts)</button>
+                    <button type="button" class="ft-col-btn" data-cols="4">4 (+<?= $currency ?> 50,00)</button>
+                    <button type="button" class="ft-col-btn" data-cols="5">5 (+<?= $currency ?> 100,00)</button>
                 </div>
             </div>
             <button type="submit" class="ft-spin-btn" id="ft-spin">GIRAR</button>
@@ -90,11 +77,11 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
 
     <div class="ft-bottom">
         <div class="ft-paytable">
-            <span class="ft-paytable-title">Prémios (× aposta em pts):</span>
+            <span class="ft-paytable-title">Prémios (× aposta):</span>
             <?php foreach (array_reverse($paytable['values']) as $v): ?>
             <span class="ft-pay-line"><?= $currency ?> <?= $v ?>: ×3→<?= (int) $paytable['pay_3'][$v] ?>× ×4→<?= (int) $paytable['pay_4'][$v] ?>× ×5→<?= (int) $paytable['pay_5'][$v] ?>×</span>
             <?php endforeach; ?>
-            <span class="ft-pay-line ft-pay-2"><?= $currency ?> 20 ×2→1×</span>
+            <span class="ft-pay-line ft-pay-2"><?= $currency ?> 20 ×2→<?= (int) $paytable['pay_2_20'] ?>×</span>
         </div>
         <div class="ft-history-compact">
             <span class="ft-history-label">Últimas</span>
@@ -117,9 +104,7 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
 window.FT_CONFIG = {
     currency: '<?= $currency ?>',
     playUrl: '<?= base_url('/api/jogo/play') ?>',
-    convertUrl: '<?= base_url('/api/carteira/convert-points') ?>',
     values: [1, 2, 3, 5, 10, 20],
-    pointsRate: <?= $pointsRate ?>,
     paytable: <?= json_encode($paytable) ?>
 };
 </script>
