@@ -12,9 +12,30 @@ class SettingsController extends BaseAdminController
     {
         $this->requireAdmin();
         $settings = new Settings();
+        $smsEnabled = (bool) \config('app.sms.enabled', false);
+        $smsDriver = (string) \config('app.sms.driver', 'simulated');
+        $twSid = (string) \config('app.sms.twilio.account_sid', '');
+        $twToken = (string) \config('app.sms.twilio.auth_token', '');
+        $twFrom = (string) \config('app.sms.twilio.from', '');
+        $missing = [];
+        if ($smsEnabled && $smsDriver === 'twilio') {
+            if ($twSid === '') $missing[] = 'TWILIO_ACCOUNT_SID';
+            if ($twToken === '') $missing[] = 'TWILIO_AUTH_TOKEN';
+            if ($twFrom === '') $missing[] = 'TWILIO_FROM';
+        }
         $this->view('admin.settings.index', [
             'title' => 'Configurações',
             'settings' => $settings,
+            'sms_status' => [
+                'enabled' => $smsEnabled,
+                'driver' => $smsDriver,
+                'twilio' => [
+                    'account_sid_set' => $twSid !== '',
+                    'auth_token_set' => $twToken !== '',
+                    'from_set' => $twFrom !== '',
+                    'missing' => $missing,
+                ],
+            ],
         ]);
     }
 
