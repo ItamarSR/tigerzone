@@ -5,15 +5,42 @@ declare(strict_types=1);
 namespace TigerZone\Models;
 
 use PDO;
+use PDOException;
 use TigerZone\Core\Database;
 
 class User
 {
     private PDO $db;
+    private ?bool $phoneColumnsReady = null;
 
     public function __construct()
     {
         $this->db = Database::getInstance();
+    }
+
+    /**
+     * Detecta se o banco já tem as colunas de celular/verificação.
+     * Evita erro fatal quando a migration ainda não foi aplicada.
+     */
+    public function supportsPhone(): bool
+    {
+        if ($this->phoneColumnsReady !== null) {
+            return $this->phoneColumnsReady;
+        }
+        try {
+            $dbName = (string) $this->db->query('SELECT DATABASE()')->fetchColumn();
+            if ($dbName === '') {
+                return $this->phoneColumnsReady = false;
+            }
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'phone'"
+            );
+            $stmt->execute([$dbName]);
+            return $this->phoneColumnsReady = ((int) $stmt->fetchColumn() > 0);
+        } catch (PDOException $e) {
+            return $this->phoneColumnsReady = false;
+        }
     }
 
     public function create(
@@ -27,21 +54,39 @@ class User
         ?string $userAgent,
         ?string $fingerprint
     ): int {
-        $stmt = $this->db->prepare(
-            'INSERT INTO users (email, password, name, phone, invite_code, referred_by, ip, user_agent, fingerprint) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
-        $stmt->execute([
-            $email,
-            $passwordHash,
-            $name,
-            $phone,
-            $inviteCode,
-            $referredBy,
-            $ip,
-            $userAgent ? substr($userAgent, 0, 500) : null,
-            $fingerprint,
-        ]);
+        if ($this->supportsPhone()) {
+            $stmt = $this->db->prepare(
+                'INSERT INTO users (email, password, name, phone, invite_code, referred_by, ip, user_agent, fingerprint) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $stmt->execute([
+                $email,
+                $passwordHash,
+                $name,
+                $phone,
+                $inviteCode,
+                $referredBy,
+                $ip,
+                $userAgent ? substr($userAgent, 0, 500) : null,
+                $fingerprint,
+            ]);
+        } else {
+            // Fallback para bancos antigos (sem coluna phone)
+            $stmt = $this->db->prepare(
+                'INSERT INTO users (email, password, name, invite_code, referred_by, ip, user_agent, fingerprint) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            );
+            $stmt->execute([
+                $email,
+                $passwordHash,
+                $name,
+                $inviteCode,
+                $referredBy,
+                $ip,
+                $userAgent ? substr($userAgent, 0, 500) : null,
+                $fingerprint,
+            ]);
+        }
         return (int) $this->db->lastInsertId();
     }
 
@@ -55,6 +100,9 @@ class User
 
     public function findByPhone(string $phone): ?array
     {
+        if (!$this->supportsPhone()) {
+            return null;
+        }
         $stmt = $this->db->prepare('SELECT * FROM users WHERE phone = ? LIMIT 1');
         $stmt->execute([$phone]);
         $row = $stmt->fetch();
@@ -85,6 +133,9 @@ class User
 
     public function setPhoneVerification(int $userId, string $code, int $ttlMinutes): void
     {
+        if (!$this->supportsPhone()) {
+            return;
+        }
         $stmt = $this->db->prepare(
             'UPDATE users 
              SET phone_verification_code = ?, 
@@ -97,6 +148,9 @@ class User
 
     public function verifyPhone(int $userId): void
     {
+        if (!$this->supportsPhone()) {
+            return;
+        }
         $stmt = $this->db->prepare(
             'UPDATE users 
              SET phone_verified_at = NOW(),

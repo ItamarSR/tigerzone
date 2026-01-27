@@ -140,6 +140,11 @@ class AuthController extends BaseController
             redirect(base_url('/registro'));
         }
         $userModel = new User();
+        if (!$userModel->supportsPhone()) {
+            flash_set('error', 'Banco desatualizado: aplique a migration `database/migrations/005_phone_verification.sql` (coluna phone) e tente novamente.');
+            $_SESSION['_old'] = ['email' => $email, 'name' => $name, 'phone' => $phoneRaw, 'ref' => $ref];
+            redirect(base_url('/registro'));
+        }
         if ($userModel->findByEmail($email)) {
             flash_set('error', 'Este e-mail já está cadastrado.');
             $_SESSION['_old'] = ['email' => $email, 'name' => $name, 'phone' => $phoneRaw, 'ref' => $ref];
