@@ -217,7 +217,9 @@ class AuthController extends BaseController
             $_SESSION['pending_phone_masked'] = $this->maskPhone($phone);
             $msg = 'Conta criada! Enviamos um código para confirmar seu celular.';
             if (!(bool) $send['success']) {
-                $msg = 'Conta criada! Não foi possível enviar o SMS agora. Tente reenviar o código.';
+                $detail = (string) ($send['error'] ?? '');
+                $msg = 'Conta criada! Não foi possível enviar o SMS agora. Tente reenviar o código.'
+                    . ($detail ? ' Motivo: ' . $detail : '');
             } elseif (config('app.sms.driver', 'simulated') === 'simulated' && config('app.sms.show_code_in_flash', false)) {
                 $msg .= ' (SIMULADO: código ' . $code . ')';
             }
@@ -310,7 +312,9 @@ class AuthController extends BaseController
         $send = $sms->sendVerificationCode($this->toE164($phone), $code);
         $msg = 'Código reenviado.';
         if (!(bool) $send['success']) {
-            $msg = 'Não foi possível enviar o SMS agora. Tente novamente.';
+            $detail = (string) ($send['error'] ?? '');
+            $msg = 'Não foi possível enviar o SMS agora. Tente novamente.'
+                . ($detail ? ' Motivo: ' . $detail : '');
         } elseif (config('app.sms.driver', 'simulated') === 'simulated' && config('app.sms.show_code_in_flash', false)) {
             $msg .= ' (SIMULADO: código ' . $code . ')';
         }

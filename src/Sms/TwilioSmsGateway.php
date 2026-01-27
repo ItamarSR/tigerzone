@@ -41,6 +41,25 @@ final class TwilioSmsGateway implements SmsGatewayInterface
             'Body' => $message,
         ]);
 
+        $formatTwilioError = function (int $httpCode, ?string $body): string {
+            $msg = 'Twilio retornou HTTP ' . $httpCode;
+            if ($body) {
+                $json = json_decode($body, true);
+                if (is_array($json)) {
+                    $twMsg = (string) ($json['message'] ?? '');
+                    $twCode = $json['code'] ?? null;
+                    if ($twMsg !== '') {
+                        $msg = 'Twilio: ' . $twMsg;
+                        if ($twCode !== null && $twCode !== '') {
+                            $msg .= ' (código ' . $twCode . ')';
+                        }
+                        $msg .= ' [HTTP ' . $httpCode . ']';
+                    }
+                }
+            }
+            return $msg;
+        };
+
         // Preferir cURL quando disponível
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
@@ -62,7 +81,7 @@ final class TwilioSmsGateway implements SmsGatewayInterface
                 return ['success' => false, 'error' => 'Falha ao enviar SMS (cURL): ' . ($err ?: 'erro desconhecido')];
             }
             if ($code < 200 || $code >= 300) {
-                return ['success' => false, 'error' => 'Twilio retornou HTTP ' . $code];
+                return ['success' => false, 'error' => $formatTwilioError($code, (string) $body)];
             }
             return ['success' => true];
         }
@@ -89,7 +108,7 @@ final class TwilioSmsGateway implements SmsGatewayInterface
             return ['success' => false, 'error' => 'Falha ao enviar SMS (stream).'];
         }
         if ($httpCode && ($httpCode < 200 || $httpCode >= 300)) {
-            return ['success' => false, 'error' => 'Twilio retornou HTTP ' . $httpCode];
+            return ['success' => false, 'error' => $formatTwilioError($httpCode, (string) $body)];
         }
         return ['success' => true];
     }
