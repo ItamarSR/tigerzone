@@ -70,7 +70,14 @@
     z-index: 0;
 }
 
-.ft-page > * {
+/* Mantém o canvas do fundo fora do fluxo (senão empurra o conteúdo) */
+.ft-page > canvas.tz-stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+}
+
+.ft-page > :not(canvas.tz-stars) {
     position: relative;
     z-index: 1;
 }
