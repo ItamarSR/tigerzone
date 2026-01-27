@@ -7,6 +7,7 @@ $paytable = \TigerZone\Game\FortuneTigerSlot::getPaytable();
 $currency = config('app.currency_display');
 ?>
 <div class="ft-page">
+    <canvas id="ft-stars" class="ft-stars" aria-hidden="true"></canvas>
     <header class="ft-topbar">
         <a href="<?= base_url('/') ?>" class="ft-logo"><img src="<?= $logoUrl ?>" alt="TigerZone" class="ft-logo-img"></a>
         <h1 class="ft-title">Fortune Tiger</h1>
@@ -107,8 +108,17 @@ window.FT_CONFIG = {
     values: [1, 2, 3, 5, 10, 20],
     paytable: <?= json_encode($paytable) ?>
 };
+window.FT_STARS_CONFIG = {
+    // ponto “principal” do aglomerado de estrelas
+    centerX: 0.55,
+    centerY: 0.35,
+    centerBias: 0.75,
+    speed: 12,
+    twinkle: 0.6
+};
 </script>
 <script src="<?= asset('js/fortune-tiger.js') ?>"></script>
+<script src="<?= asset('js/starfield.js') ?>"></script>
 <?php
 $content = ob_get_clean();
 $styles = '<link rel="stylesheet" href="' . asset('css/fortune-tiger.css') . '">';

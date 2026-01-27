@@ -5,7 +5,18 @@
     min-height: 100vh;
     height: 100vh;
     overflow: hidden;
-    background: #0a0e1a;
+    background: #05060d;
+}
+
+.ft-stars {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.95;
+    filter: saturate(1.05) contrast(1.03);
 }
 
 .ft-flash {
@@ -22,6 +33,8 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 1;
 }
 
 /* Page */
@@ -32,7 +45,7 @@
     --ft-red-deep: #8b1538;
     --ft-green: #1e7c4a;
     --ft-green-dim: #0d5c34;
-    --ft-bg: linear-gradient(180deg, #0f1729 0%, #0a0e1a 40%, #060813 100%);
+    --ft-bg: linear-gradient(180deg, rgba(15,23,41,0.65) 0%, rgba(10,14,26,0.75) 40%, rgba(6,8,19,0.82) 100%);
     --ft-temple: radial-gradient(ellipse 100% 60% at 50% 120%, rgba(139,21,56,0.15), transparent 50%),
                  radial-gradient(ellipse 80% 40% at 50% -10%, rgba(232,185,35,0.08), transparent 40%);
     flex: 1;
@@ -42,6 +55,24 @@
     background: var(--ft-bg);
     background-image: var(--ft-temple);
     color: #f0e6d8;
+    position: relative;
+}
+
+.ft-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(900px 420px at 60% 35%, rgba(232,185,35,0.08), transparent 60%),
+        radial-gradient(800px 420px at 40% 55%, rgba(196,30,58,0.06), transparent 62%),
+        linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35));
+    z-index: 0;
+}
+
+.ft-page > * {
+    position: relative;
+    z-index: 1;
 }
 
 /* Top bar */
