@@ -230,9 +230,16 @@
     }
 
     ready(function () {
-        var canvas = document.getElementById('ft-stars');
-        if (!canvas) return;
-        init(canvas, window.FT_STARS_CONFIG || {});
+        var list = document.querySelectorAll('canvas[data-starfield]');
+        if (!list || !list.length) return;
+
+        for (var i = 0; i < list.length; i++) {
+            var canvas = list[i];
+            var key = canvas.getAttribute('data-starfield') || canvas.id || String(i);
+            var configs = window.STARFIELD_CONFIGS || {};
+            var cfg = configs[key] || {};
+            init(canvas, cfg);
+        }
     });
 })();
 

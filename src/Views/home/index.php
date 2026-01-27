@@ -1,5 +1,6 @@
 <?php
 $title = 'Início';
+$stars = true;
 ob_start();
 ?>
 <div class="container">
@@ -22,6 +23,9 @@ ob_start();
                 <span class="game-cta">Jogar</span>
             </a>
             <?php endforeach; ?>
+            <?php if (empty($games)): ?>
+                <div class="alert alert-error">Nenhum jogo disponível no momento.</div>
+            <?php endif; ?>
         </div>
         <p class="games-note"><a href="<?= base_url('/jogos') ?>">Ver todos os jogos</a></p>
     </section>

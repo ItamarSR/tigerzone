@@ -14,7 +14,20 @@
     <link rel="stylesheet" href="<?= asset('css/app.css') ?>">
     <?= $styles ?? '' ?>
 </head>
-<body>
+<body class="<?= !empty($stars) ? 'has-stars' : '' ?>">
+    <?php if (!empty($stars)): ?>
+        <canvas id="tz-stars" class="tz-stars" data-starfield="main" aria-hidden="true"></canvas>
+        <script>
+        window.STARFIELD_CONFIGS = window.STARFIELD_CONFIGS || {};
+        window.STARFIELD_CONFIGS['main'] = {
+            centerX: 0.55,
+            centerY: 0.28,
+            centerBias: 0.7,
+            speed: 9,
+            twinkle: 0.55
+        };
+        </script>
+    <?php endif; ?>
     <?php $user = auth() ?? []; ?>
     <header class="site-header">
         <div class="container header-inner">
@@ -53,6 +66,9 @@
     </footer>
 
     <script src="<?= asset('js/app.js') ?>"></script>
+    <?php if (!empty($stars)): ?>
+        <script src="<?= asset('js/starfield.js') ?>"></script>
+    <?php endif; ?>
     <?= $scripts ?? '' ?>
 </body>
 </html>
