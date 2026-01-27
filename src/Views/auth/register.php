@@ -9,6 +9,10 @@ ob_start();
             <?= \TigerZone\Core\Security::csrfField() ?>
             <label>Nome</label>
             <input type="text" name="name" required value="<?= htmlspecialchars(old('name')) ?>">
+            <label>Celular (WhatsApp)</label>
+            <input type="tel" name="phone" required inputmode="tel" autocomplete="tel"
+                   placeholder="(11) 91234-5678"
+                   value="<?= htmlspecialchars(old('phone')) ?>">
             <label>E-mail</label>
             <input type="email" name="email" required value="<?= htmlspecialchars(old('email')) ?>">
             <label>Senha (mín. 6 caracteres)</label>

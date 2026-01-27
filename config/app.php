@@ -24,4 +24,14 @@ return [
         'fortune_dragon' => ['name' => 'Fortune Dragon', 'slug' => 'fortune-dragon', 'icon' => 'dragon'],
         'fortune_ox' => ['name' => 'Fortune Ox', 'slug' => 'fortune-ox', 'icon' => 'ox'],
     ],
+    // SMS (confirmação de celular). Por padrão é simulado (não envia SMS real).
+    'sms' => [
+        'enabled' => true,
+        'driver' => 'simulated', // simulated | twilio | ...
+        'code_ttl_minutes' => 10,
+        // Em modo simulado, exibe o código no flash (para testes).
+        'show_code_in_flash' => true,
+        // País default para normalização (Brasil).
+        'default_country_code' => '55',
+    ],
 ];

@@ -20,6 +20,7 @@ class User
         string $email,
         string $passwordHash,
         string $name,
+        string $phone,
         string $inviteCode,
         ?int $referredBy,
         ?string $ip,
@@ -27,13 +28,14 @@ class User
         ?string $fingerprint
     ): int {
         $stmt = $this->db->prepare(
-            'INSERT INTO users (email, password, name, invite_code, referred_by, ip, user_agent, fingerprint) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO users (email, password, name, phone, invite_code, referred_by, ip, user_agent, fingerprint) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $email,
             $passwordHash,
             $name,
+            $phone,
             $inviteCode,
             $referredBy,
             $ip,
@@ -47,6 +49,14 @@ class User
     {
         $stmt = $this->db->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
         $stmt->execute([$email]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function findByPhone(string $phone): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE phone = ? LIMIT 1');
+        $stmt->execute([$phone]);
         $row = $stmt->fetch();
         return $row ?: null;
     }
@@ -71,6 +81,36 @@ class User
     {
         $stmt = $this->db->prepare('UPDATE users SET last_ip = ?, last_login_at = NOW(), updated_at = NOW() WHERE id = ?');
         $stmt->execute([$ip, $userId]);
+    }
+
+    public function setPhoneVerification(int $userId, string $code, int $ttlMinutes): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users 
+             SET phone_verification_code = ?, 
+                 phone_verification_expires_at = DATE_ADD(NOW(), INTERVAL ? MINUTE),
+                 updated_at = NOW()
+             WHERE id = ?'
+        );
+        $stmt->execute([$code, $ttlMinutes, $userId]);
+    }
+
+    public function verifyPhone(int $userId): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users 
+             SET phone_verified_at = NOW(),
+                 phone_verification_code = NULL,
+                 phone_verification_expires_at = NULL,
+                 updated_at = NOW()
+             WHERE id = ?'
+        );
+        $stmt->execute([$userId]);
+    }
+
+    public function isPhoneVerified(array $user): bool
+    {
+        return !empty($user['phone_verified_at']);
     }
 
     public function countByIp(string $ip): int
