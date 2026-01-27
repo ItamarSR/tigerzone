@@ -14,9 +14,14 @@ final class SmsService
         if ($gateway) {
             $this->gateway = $gateway;
         } else {
-            $this->gateway = $driver === 'simulated'
-                ? new SimulatedSmsGateway()
-                : new SimulatedSmsGateway();
+            if ($driver === 'twilio') {
+                $sid = (string) \config('app.sms.twilio.account_sid', '');
+                $token = (string) \config('app.sms.twilio.auth_token', '');
+                $from = (string) \config('app.sms.twilio.from', '');
+                $this->gateway = new TwilioSmsGateway($sid, $token, $from);
+            } else {
+                $this->gateway = new SimulatedSmsGateway();
+            }
         }
     }
 
