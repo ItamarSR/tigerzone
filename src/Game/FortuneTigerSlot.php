@@ -64,11 +64,12 @@ final class FortuneTigerSlot
     public function spinRoulette(int $columns = 3): array
     {
         $columns = max(3, min(5, (int) $columns));
-        $prize = $this->pickValue();
+        // "Roleta" deve variar entre R$ 1,00 e R$ 20,00
+        $prize = random_int(1, 20);
         $reels = [];
         for ($c = 0; $c < $columns; $c++) {
-            $top = $this->pickValue();
-            $bottom = $this->pickValue();
+            $top = random_int(1, 20);
+            $bottom = random_int(1, 20);
             $reels[$c] = [$top, $prize, $bottom];
         }
         return [

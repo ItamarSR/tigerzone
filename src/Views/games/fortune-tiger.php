@@ -23,7 +23,7 @@ $currency = config('app.currency_display');
     <div class="ft-pool-bar">
         <span class="ft-pool-label">Pool (depósitos)</span>
         <span class="ft-pool-value"><?= $currency ?> <strong id="ft-prize-pool"><?= number_format((float) $prize_pool, 2, ',', '.') ?></strong></span>
-        <span class="ft-pool-deposits">Depósitos: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?> → 10k, 20k, 30k…</span>
+        <span class="ft-pool-deposits">Depósitos: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?> → 1k, 2k, 3k…</span>
     </div>
 
     <div class="ft-stage">
