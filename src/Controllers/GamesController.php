@@ -134,27 +134,26 @@ class GamesController extends BaseController
         if ($gameSlug === 'fortune-tiger') {
             $betReais = round((float) $bet, 2);
             $betMin = 1.0;
-            $betMax = 50.0;
+            $betMax = 40.0;
             if ($betReais < $betMin || $betReais > $betMax) {
                 if ($this->wantsJson()) {
-                    $this->json(['error' => 'Aposta deve ser entre R$ 1,00 e R$ 50,00.'], 400);
+                    $this->json(['error' => 'Aposta deve ser entre R$ 1,00 e R$ 40,00.'], 400);
                 }
-                flash_set('error', 'Aposta deve ser entre R$ 1,00 e R$ 50,00.');
+                flash_set('error', 'Aposta deve ser entre R$ 1,00 e R$ 40,00.');
                 redirect(base_url('/jogo/fortune-tiger'));
             }
             $columns = max(3, min(5, $columns));
-            
-            // Custo adicional por colunas extras (em R$): 4 colunas +R$ 50,00; 5 colunas +R$ 100,00
-            $extraColumnsCost = 0.0;
+
+            // Multiplicador por seleção (colunas): 3=×1, 4=×50, 5=×100
+            $winFactor = 1.0;
             if ($columns === 4) {
-                $extraColumnsCost = 50.0;
+                $winFactor = 50.0;
             } elseif ($columns === 5) {
-                $extraColumnsCost = 100.0;
+                $winFactor = 100.0;
             }
-            $totalCost = round($betReais + $extraColumnsCost, 2);
 
             $beforeBalance = $wallet->getBalance((int) $user['id']);
-            if ($beforeBalance < $totalCost) {
+            if ($beforeBalance < $betReais) {
                 if ($this->wantsJson()) {
                     $this->json(['error' => 'Saldo insuficiente', 'balance' => $beforeBalance], 400);
                 }
@@ -162,11 +161,10 @@ class GamesController extends BaseController
                 redirect(base_url('/jogo/fortune-tiger'));
             }
             
-            $sub = $wallet->subtract((int) $user['id'], $totalCost, 'bet', 'GAME:fortune-tiger', [
+            $sub = $wallet->subtract((int) $user['id'], $betReais, 'bet', 'GAME:fortune-tiger', [
                 'game_id' => (int) $game['id'],
-                'bet_base' => $betReais,
                 'columns' => $columns,
-                'extra_columns_cost' => $extraColumnsCost,
+                'win_factor' => $winFactor,
             ]);
             if (!$sub['success']) {
                 if ($this->wantsJson()) {
@@ -176,10 +174,10 @@ class GamesController extends BaseController
             }
             $afterBalance = $sub['new_balance'];
             $slot = new FortuneTigerSlot();
-            // Passa apenas a aposta base (sem o custo das colunas extras) para o cálculo do ganho
             $result = $slot->spin($betReais, $columns);
-            $winReais = (float) $result['win']; // Ganho em R$
-            $mult = $result['multiplier'];
+            $baseWinReais = (float) $result['win']; // Ganho base em R$
+            $winReais = round($baseWinReais * $winFactor, 2); // Ganho final em R$
+            $mult = $betReais > 0 ? round($winReais / $betReais, 2) : 0.0;
             $reels = $result['reels'];
             $poolBonus = 0;
             if ($winReais > 0) {
@@ -192,13 +190,13 @@ class GamesController extends BaseController
                     $afterBalance = $wallet->getBalance((int) $user['id']);
                 }
             }
-            $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $totalCost, (float) $winReais, (float) $beforeBalance, (float) $afterBalance, [
+            $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $betReais, (float) $winReais, (float) $beforeBalance, (float) $afterBalance, [
                 'multiplier' => $mult,
                 'reels' => $reels,
                 'pool_bonus' => $poolBonus,
-                'bet_base' => $betReais,
                 'columns' => $columns,
-                'extra_columns_cost' => $extraColumnsCost,
+                'win_factor' => $winFactor,
+                'base_win' => $baseWinReais,
             ]);
             $_SESSION['user']['balance'] = $afterBalance;
             if ($this->wantsJson()) {

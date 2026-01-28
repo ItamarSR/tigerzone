@@ -244,17 +244,12 @@
         e.preventDefault();
         var bet = parseMoneyBr(betInput?.value || '0');
         var cols = parseInt(columnsInput?.value || 3, 10);
-        if (bet < 1 || bet > 50) {
-            showError('Aposta deve ser entre R$ 1,00 e R$ 50,00.');
+        if (bet < 1 || bet > 40) {
+            showError('Aposta deve ser entre R$ 1,00 e R$ 40,00.');
             return;
         }
-        // Custo adicional por colunas extras (em R$): 4 colunas +50; 5 colunas +100
-        var extraColumnsCost = 0;
-        if (cols === 4) extraColumnsCost = 50;
-        else if (cols === 5) extraColumnsCost = 100;
-        var totalCost = bet + extraColumnsCost;
         var bal = parseMoneyBr(balanceEl?.textContent || '0');
-        if (bal < totalCost) {
+        if (bal < bet) {
             showError('Saldo insuficiente.');
             return;
         }
@@ -266,7 +261,7 @@
         var spin = spinAnimation(SPIN_INTERVAL_MS);
         var fd = new FormData(form);
         fd.set('columns', String(Math.max(3, Math.min(5, cols))));
-        fd.set('bet', String(bet)); // Envia apenas a aposta base, o controller calcula o custo das colunas
+        fd.set('bet', String(bet));
 
         var data;
         try {
