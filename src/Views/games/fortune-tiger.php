@@ -60,15 +60,15 @@ $currency = config('app.currency_display');
             <input type="hidden" name="game" value="fortune-tiger">
             <input type="hidden" name="columns" id="ft-columns-input" value="3">
             <div class="ft-bet-row">
-                <label>Aposta (R$) 1,00–40,00</label>
-                <input type="number" name="bet" id="ft-bet" min="1" max="40" step="0.01" value="5.00">
+                <label>Multiplicador (R$) 1–40</label>
+                <input type="number" name="bet" id="ft-bet" min="1" max="40" step="1" value="5">
             </div>
             <div class="ft-columns-row">
                 <span class="ft-columns-label">Colunas</span>
                 <div class="ft-columns-btns">
                     <button type="button" class="ft-col-btn active" data-cols="3">3</button>
-                    <button type="button" class="ft-col-btn" data-cols="4">4 (<?= $currency ?> 50,00 → ×50)</button>
-                    <button type="button" class="ft-col-btn" data-cols="5">5 (<?= $currency ?> 100,00 → ×100)</button>
+                    <button type="button" class="ft-col-btn" data-cols="4">×50 (<?= $currency ?> 50)</button>
+                    <button type="button" class="ft-col-btn" data-cols="5">×100 (<?= $currency ?> 100)</button>
                 </div>
             </div>
             <button type="submit" class="ft-spin-btn" id="ft-spin">GIRAR</button>

@@ -191,6 +191,13 @@
     width: 100%;
 }
 
+/* Ajustes de layout para 4 e 5 colunas (mais largura e menos espaço lateral) */
+.ft-page.ft-cols-4 .ft-stage { gap: 0.75rem; }
+.ft-page.ft-cols-5 .ft-stage { gap: 0.5rem; }
+.ft-page.ft-cols-4 .ft-tiger { width: clamp(60px, 10vw, 105px); }
+.ft-page.ft-cols-5 .ft-tiger { width: clamp(52px, 9vw, 90px); }
+.ft-page.ft-cols-5 .ft-cabinet-frame { padding: 10px; }
+
 /* Animated tigers */
 .ft-tiger {
     flex: 0 0 auto;

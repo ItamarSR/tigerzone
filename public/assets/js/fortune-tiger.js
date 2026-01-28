@@ -76,6 +76,12 @@
         if (columnsInput) columnsInput.value = cols;
         reelsEl.classList.remove('ft-cols-3', 'ft-cols-4', 'ft-cols-5');
         reelsEl.classList.add('ft-cols-' + cols);
+        // também aplica na página (para CSS responsivo)
+        var page = document.querySelector('.ft-page');
+        if (page) {
+            page.classList.remove('ft-cols-3', 'ft-cols-4', 'ft-cols-5');
+            page.classList.add('ft-cols-' + cols);
+        }
         const reels = getReelElements();
         reels.forEach(function (r, i) {
             r.classList.toggle('ft-reel-hidden', i >= cols);
@@ -87,7 +93,24 @@
         // Ajusta o tamanho do cabinet para melhor visualização
         var cabinet = document.querySelector('.ft-cabinet');
         if (cabinet) {
-            cabinet.style.maxWidth = cols === 3 ? 'min(520px, 92vw)' : cols === 4 ? 'min(680px, 95vw)' : 'min(840px, 98vw)';
+            cabinet.style.maxWidth = cols === 3 ? 'min(520px, 92vw)' : cols === 4 ? 'min(780px, 96vw)' : 'min(980px, 99vw)';
+        }
+
+        // Multiplicador: 3 colunas = editável (1–40); 4 = 50; 5 = 100
+        if (betInput) {
+            if (cols === 4) {
+                betInput.value = '50';
+                betInput.disabled = true;
+            } else if (cols === 5) {
+                betInput.value = '100';
+                betInput.disabled = true;
+            } else {
+                betInput.disabled = false;
+                var v = parseMoneyBr(betInput.value || '0');
+                if (v < 1) v = 1;
+                if (v > 40) v = 40;
+                betInput.value = String(Math.round(v));
+            }
         }
         return cols;
     }
@@ -244,9 +267,17 @@
         e.preventDefault();
         var bet = parseMoneyBr(betInput?.value || '0');
         var cols = parseInt(columnsInput?.value || 3, 10);
-        if (bet < 1 || bet > 40) {
-            showError('Aposta deve ser entre R$ 1,00 e R$ 40,00.');
-            return;
+        // 3 colunas: multiplicador livre (1–40); 4: 50; 5: 100
+        if (cols === 3) {
+            if (bet < 1 || bet > 40) {
+                showError('Multiplicador deve ser entre R$ 1,00 e R$ 40,00.');
+                return;
+            }
+            bet = Math.round(bet);
+        } else if (cols === 4) {
+            bet = 50;
+        } else if (cols === 5) {
+            bet = 100;
         }
         var bal = parseMoneyBr(balanceEl?.textContent || '0');
         if (bal < bet) {

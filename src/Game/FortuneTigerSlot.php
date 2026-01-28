@@ -57,6 +57,27 @@ final class FortuneTigerSlot
     private const PAY_2_20 = 1.0;
 
     /**
+     * Modo "roleta": sorteia um valor e força ele na payline (meio) em todas as colunas.
+     * @param int $columns 3, 4 ou 5
+     * @return array{reels: array<int, array<int, int>>, prize: int}
+     */
+    public function spinRoulette(int $columns = 3): array
+    {
+        $columns = max(3, min(5, (int) $columns));
+        $prize = $this->pickValue();
+        $reels = [];
+        for ($c = 0; $c < $columns; $c++) {
+            $top = $this->pickValue();
+            $bottom = $this->pickValue();
+            $reels[$c] = [$top, $prize, $bottom];
+        }
+        return [
+            'reels' => $reels,
+            'prize' => $prize,
+        ];
+    }
+
+    /**
      * Gera rolos (colunas × 3 linhas) e calcula ganho.
      *
      * @param float $bet Aposta em R$

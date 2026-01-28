@@ -132,24 +132,24 @@ class GamesController extends BaseController
         $wallet = new Wallet();
 
         if ($gameSlug === 'fortune-tiger') {
-            $betReais = round((float) $bet, 2);
-            $betMin = 1.0;
-            $betMax = 40.0;
-            if ($betReais < $betMin || $betReais > $betMax) {
-                if ($this->wantsJson()) {
-                    $this->json(['error' => 'Aposta deve ser entre R$ 1,00 e R$ 40,00.'], 400);
-                }
-                flash_set('error', 'Aposta deve ser entre R$ 1,00 e R$ 40,00.');
-                redirect(base_url('/jogo/fortune-tiger'));
-            }
             $columns = max(3, min(5, $columns));
 
-            // Multiplicador por seleção (colunas): 3=×1, 4=×50, 5=×100
-            $winFactor = 1.0;
+            // Multiplicador (aposta): 3 colunas = escolhido (1–40); 4 colunas = 50; 5 colunas = 100
+            $betMin = 1.0;
+            $betMax = 40.0;
             if ($columns === 4) {
-                $winFactor = 50.0;
+                $betReais = 50.0;
             } elseif ($columns === 5) {
-                $winFactor = 100.0;
+                $betReais = 100.0;
+            } else {
+                $betReais = round((float) $bet, 2);
+                if ($betReais < $betMin || $betReais > $betMax) {
+                    if ($this->wantsJson()) {
+                        $this->json(['error' => 'Multiplicador deve ser entre R$ 1,00 e R$ 40,00.'], 400);
+                    }
+                    flash_set('error', 'Multiplicador deve ser entre R$ 1,00 e R$ 40,00.');
+                    redirect(base_url('/jogo/fortune-tiger'));
+                }
             }
 
             $beforeBalance = $wallet->getBalance((int) $user['id']);
@@ -164,7 +164,7 @@ class GamesController extends BaseController
             $sub = $wallet->subtract((int) $user['id'], $betReais, 'bet', 'GAME:fortune-tiger', [
                 'game_id' => (int) $game['id'],
                 'columns' => $columns,
-                'win_factor' => $winFactor,
+                'bet_multiplier' => $betReais,
             ]);
             if (!$sub['success']) {
                 if ($this->wantsJson()) {
@@ -174,11 +174,11 @@ class GamesController extends BaseController
             }
             $afterBalance = $sub['new_balance'];
             $slot = new FortuneTigerSlot();
-            $result = $slot->spin($betReais, $columns);
-            $baseWinReais = (float) $result['win']; // Ganho base em R$
-            $winReais = round($baseWinReais * $winFactor, 2); // Ganho final em R$
-            $mult = $betReais > 0 ? round($winReais / $betReais, 2) : 0.0;
-            $reels = $result['reels'];
+            $result = $slot->spinRoulette($columns);
+            $prize = (int) ($result['prize'] ?? 0);
+            $reels = $result['reels'] ?? [];
+            $winReais = round(((float) $prize) * $betReais, 2);
+            $mult = (float) $betReais;
             $poolBonus = 0;
             if ($winReais > 0) {
                 // Adiciona ganho em R$ diretamente ao saldo (balance), não aos pontos
@@ -195,8 +195,8 @@ class GamesController extends BaseController
                 'reels' => $reels,
                 'pool_bonus' => $poolBonus,
                 'columns' => $columns,
-                'win_factor' => $winFactor,
-                'base_win' => $baseWinReais,
+                'prize' => $prize,
+                'bet_multiplier' => $betReais,
             ]);
             $_SESSION['user']['balance'] = $afterBalance;
             if ($this->wantsJson()) {
