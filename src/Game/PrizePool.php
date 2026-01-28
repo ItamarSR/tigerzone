@@ -9,15 +9,18 @@ use TigerZone\Models\Wallet;
 
 /**
  * Pool de prémios por marcos de depósitos.
- * A cada R$ 1.000,00 em depósitos totais, libera R$ 200,00 para premiação.
- * A premiação é concedida aleatoriamente a quem fizer combinações (vitórias).
+ * Regras:
+ * - A premiação começa quando Depósitos Gerais >= R$ 5.000,00
+ * - Distribui até R$ 1.000,00 em premiações por ciclo; ao atingir, zera e começa de novo
+ * - Se Depósitos (últimas 24h) > R$ 10.000,00, o ciclo dobra para R$ 4.000,00
  */
 final class PrizePool
 {
-    private const MILESTONE_STEP = 1_000.0;
-    private const RELEASE_PER_MILESTONE = 200.0;
-    private const BONUS_AMOUNT = 200.0;
-    private const BONUS_CHANCE_PERCENT = 5; // 5% de chance por vitória
+    private const ACTIVATION_TOTAL_DEPOSITS = 5_000.0;
+    private const BOOST_24H_DEPOSITS = 10_000.0;
+    private const CYCLE_BUDGET_DEFAULT = 1_000.0;
+    private const CYCLE_BUDGET_BOOSTED = 4_000.0;
+    private const KEY_CYCLE_PAID = 'prize_cycle_paid';
 
     private Settings $settings;
     private Wallet $wallet;
@@ -30,8 +33,8 @@ final class PrizePool
 
     public function getPool(): float
     {
-        $this->releaseMilestones();
-        return $this->settings->getFloat('prize_pool', 0.0);
+        // Para UI: retorna o restante disponível no ciclo (0 se inativo)
+        return $this->getRemainingInCycle();
     }
 
     public function getTotalDeposits(): float
@@ -39,51 +42,76 @@ final class PrizePool
         return $this->wallet->totalDeposits();
     }
 
-    public function getLastMilestone(): float
+    public function getTotalDepositsLast24h(): float
     {
-        return (float) $this->settings->get('prize_pool_last_milestone', '0');
+        return $this->wallet->totalDepositsLastHours(24);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->getTotalDeposits() >= self::ACTIVATION_TOTAL_DEPOSITS;
+    }
+
+    public function shouldFacilitateCombos(): bool
+    {
+        return $this->isActive() && $this->getRemainingInCycle() > 0.0;
+    }
+
+    public function getCycleBudget(): float
+    {
+        $d24 = $this->getTotalDepositsLast24h();
+        return $d24 > self::BOOST_24H_DEPOSITS ? self::CYCLE_BUDGET_BOOSTED : self::CYCLE_BUDGET_DEFAULT;
+    }
+
+    public function getPaidInCycle(): float
+    {
+        return $this->settings->getFloat(self::KEY_CYCLE_PAID, 0.0);
+    }
+
+    public function getRemainingInCycle(): float
+    {
+        if (!$this->isActive()) {
+            return 0.0;
+        }
+        $budget = $this->getCycleBudget();
+        $paid = $this->getPaidInCycle();
+        if ($paid < 0) $paid = 0.0;
+        if ($paid >= $budget) {
+            // Se mudou o budget e ficou inconsistente, reinicia
+            $this->settings->set(self::KEY_CYCLE_PAID, '0');
+            return $budget;
+        }
+        return round(max(0.0, $budget - $paid), 2);
     }
 
     /**
-     * Libera pool quando total de depósitos cruza marcos (1k, 2k, 3k, …).
+     * Consome do orçamento do ciclo (capa o pagamento ao restante).
+     * Quando atingir o budget, zera e inicia novo ciclo.
      */
-    public function releaseMilestones(): void
+    public function consumeCycle(float $requested): float
     {
-        $total = $this->wallet->totalDeposits();
-        $last = (float) $this->settings->get('prize_pool_last_milestone', '0');
-        $pool = $this->settings->getFloat('prize_pool', 0.0);
-        $next = $last + self::MILESTONE_STEP;
-        if ($total < $next) {
-            return;
+        if (!$this->isActive()) {
+            return $requested;
         }
-        while ($total >= $next) {
-            $pool += self::RELEASE_PER_MILESTONE;
-            $last = $next;
-            $next += self::MILESTONE_STEP;
-        }
-        $this->settings->set('prize_pool', (string) round($pool, 2));
-        $this->settings->set('prize_pool_last_milestone', (string) (int) $last);
-    }
+        $requested = round(max(0.0, $requested), 2);
+        if ($requested <= 0) return 0.0;
 
-    /**
-     * Concede bónus do pool a um jogador (em R$). Retorna o valor creditado.
-     */
-    public function grantBonusToPlayer(int $userId): float
-    {
-        $this->releaseMilestones();
-        $pool = $this->settings->getFloat('prize_pool', 0.0);
-        if ($pool < self::BONUS_AMOUNT) {
+        $budget = $this->getCycleBudget();
+        $paid = $this->getPaidInCycle();
+        if ($paid < 0) $paid = 0.0;
+        if ($paid >= $budget) {
+            $paid = 0.0;
+        }
+        $remaining = max(0.0, $budget - $paid);
+        if ($remaining <= 0.0) {
             return 0.0;
         }
-        // Premiação aleatória (somente quando há saldo no pool)
-        $roll = random_int(1, 100);
-        if ($roll > self::BONUS_CHANCE_PERCENT) {
-            return 0.0;
+        $payout = min($requested, $remaining);
+        $newPaid = $paid + $payout;
+        if ($newPaid >= $budget - 0.0001) {
+            $newPaid = 0.0; // zera e inicia do zero
         }
-        $bonusReal = self::BONUS_AMOUNT;
-        $newPool = max(0.0, $pool - $bonusReal);
-        $this->settings->set('prize_pool', (string) round($newPool, 2));
-        $this->wallet->add($userId, round($bonusReal, 2), 'bonus', 'PRIZE_POOL', ['source' => 'prize_pool']);
-        return round($bonusReal, 2);
+        $this->settings->set(self::KEY_CYCLE_PAID, (string) round($newPaid, 2));
+        return round($payout, 2);
     }
 }

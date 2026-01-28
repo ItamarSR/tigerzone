@@ -125,4 +125,17 @@ class Wallet
         $stmt = $this->db->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE type = 'deposit'");
         return (float) $stmt->fetchColumn();
     }
+
+    /** Total de depósitos nas últimas N horas (transações type=deposit). */
+    public function totalDepositsLastHours(int $hours = 24): float
+    {
+        $hours = max(1, min(168, $hours));
+        $stmt = $this->db->prepare(
+            "SELECT COALESCE(SUM(amount), 0) 
+             FROM transactions 
+             WHERE type = 'deposit' AND created_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)"
+        );
+        $stmt->execute([$hours]);
+        return (float) $stmt->fetchColumn();
+    }
 }

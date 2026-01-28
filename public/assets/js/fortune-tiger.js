@@ -209,7 +209,7 @@
         };
     }
 
-    function stopReelsOneByOne(reelsData, spin, onComplete) {
+    function stopReelsOneByOne(reelsData, spin, isWin, onComplete) {
         const reels = getVisibleReels();
         var idx = 0;
         function stopNext() {
@@ -223,7 +223,7 @@
             var vals = reelsData[idx];
             spin.stopReel(idx);
             applyReelResult(r, vals);
-            r.classList.add('win');
+            if (isWin) r.classList.add('win');
             soundStop();
             idx++;
             setTimeout(stopNext, STOP_DELAY_MS);
@@ -320,7 +320,7 @@
         var reels = data.reels;
 
         if (reels && Array.isArray(reels) && reels.length >= 3) {
-            stopReelsOneByOne(reels, spin, function () {
+            stopReelsOneByOne(reels, spin, winReais > 0, function () {
                 updateBalanceDisplay(data.balance);
                 if (data.prize_pool != null) updatePrizePool(data.prize_pool);
                 prependHistory(winReais, poolBonus);

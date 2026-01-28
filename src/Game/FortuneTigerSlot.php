@@ -57,24 +57,27 @@ final class FortuneTigerSlot
     private const PAY_2_20 = 1.0;
 
     /**
-     * Modo "roleta": sorteia um valor e força ele na payline (meio) em todas as colunas.
+     * Modo "roleta": sorteia um valor por coluna (linha do meio).
+     * Quando $easyMode estiver ativo, aumenta a chance de sair uma combinação (valores iguais).
      * @param int $columns 3, 4 ou 5
+     * @param bool $easyMode
      * @return array{reels: array<int, array<int, int>>, prize: int}
      */
-    public function spinRoulette(int $columns = 3): array
+    public function spinRoulette(int $columns = 3, bool $easyMode = false): array
     {
         $columns = max(3, min(5, (int) $columns));
-        // "Roleta" deve variar entre R$ 1,00 e R$ 20,00
-        $prize = random_int(1, 20);
+        $target = random_int(1, 20);
+        $forceCombo = $easyMode && random_int(1, 100) <= 35;
         $reels = [];
         for ($c = 0; $c < $columns; $c++) {
             $top = random_int(1, 20);
+            $mid = $forceCombo ? $target : random_int(1, 20);
             $bottom = random_int(1, 20);
-            $reels[$c] = [$top, $prize, $bottom];
+            $reels[$c] = [$top, $mid, $bottom];
         }
         return [
             'reels' => $reels,
-            'prize' => $prize,
+            'prize' => $target, // apenas informativo
         ];
     }
 

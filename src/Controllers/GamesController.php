@@ -67,6 +67,7 @@ class GamesController extends BaseController
         $prizePool = new PrizePool();
         $pool = $prizePool->getPool();
         $totalDeposits = $prizePool->getTotalDeposits();
+        $totalDeposits24h = $prizePool->getTotalDepositsLast24h();
         $this->view('games.fortune-tiger', [
             'title' => 'Fortune Tiger',
             'game' => $game,
@@ -74,6 +75,7 @@ class GamesController extends BaseController
             'history' => $history,
             'prize_pool' => $pool,
             'total_deposits' => $totalDeposits,
+            'total_deposits_24h' => $totalDeposits24h,
         ]);
     }
 
@@ -174,33 +176,44 @@ class GamesController extends BaseController
             }
             $afterBalance = $sub['new_balance'];
             $slot = new FortuneTigerSlot();
-            $result = $slot->spinRoulette($columns);
-            $prize = (int) ($result['prize'] ?? 0);
+            $prizePool = new PrizePool();
+            $easyMode = $prizePool->shouldFacilitateCombos();
+
+            $result = $slot->spinRoulette($columns, $easyMode);
             $reels = $result['reels'] ?? [];
-            $winReais = round(((float) $prize) * $betReais, 2);
+            // Combinação: valores do meio iguais em todas as colunas visíveis
+            $midVals = [];
+            foreach ($reels as $col) {
+                $midVals[] = (int) ($col[1] ?? 0);
+            }
+            $isCombo = count($midVals) >= 3 && count(array_unique($midVals)) === 1;
+            $basePrize = $isCombo ? (int) ($midVals[0] ?? 0) : 0;
+
+            $requestedWin = $basePrize > 0 ? round(((float) $basePrize) * $betReais, 2) : 0.0;
+            $winReais = $requestedWin;
+            if ($requestedWin > 0 && $prizePool->isActive()) {
+                $winReais = $prizePool->consumeCycle($requestedWin);
+            }
             $mult = (float) $betReais;
             $poolBonus = 0;
             if ($winReais > 0) {
                 // Adiciona ganho em R$ diretamente ao saldo (balance), não aos pontos
                 $addResult = $wallet->add((int) $user['id'], $winReais, 'win', 'GAME:fortune-tiger', ['game_id' => $game['id']]);
                 $afterBalance = $addResult['new_balance'];
-                $prizePool = new PrizePool();
-                $poolBonus = $prizePool->grantBonusToPlayer((int) $user['id']);
-                if ($poolBonus > 0) {
-                    $afterBalance = $wallet->getBalance((int) $user['id']);
-                }
             }
             $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $betReais, (float) $winReais, (float) $beforeBalance, (float) $afterBalance, [
                 'multiplier' => $mult,
                 'reels' => $reels,
                 'pool_bonus' => $poolBonus,
                 'columns' => $columns,
-                'prize' => $prize,
                 'bet_multiplier' => $betReais,
+                'combo' => $isCombo,
+                'base_prize' => $basePrize,
+                'requested_win' => $requestedWin,
+                'easy_mode' => $easyMode,
             ]);
             $_SESSION['user']['balance'] = $afterBalance;
             if ($this->wantsJson()) {
-                $prizePool = new PrizePool();
                 $this->json([
                     'win' => $winReais, // Retorna ganho em R$
                     'balance' => $afterBalance,

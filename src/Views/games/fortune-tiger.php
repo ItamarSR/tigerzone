@@ -21,9 +21,13 @@ $currency = config('app.currency_display');
     </header>
 
     <div class="ft-pool-bar">
-        <span class="ft-pool-label">Pool (depósitos)</span>
+        <span class="ft-pool-label">Premiação (ciclo)</span>
         <span class="ft-pool-value"><?= $currency ?> <strong id="ft-prize-pool"><?= number_format((float) $prize_pool, 2, ',', '.') ?></strong></span>
-        <span class="ft-pool-deposits">Depósitos: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?> → 1k, 2k, 3k…</span>
+        <span class="ft-pool-deposits">
+            Depósitos gerais: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?>
+            | 24h: <?= $currency ?> <?= number_format((float) ($total_deposits_24h ?? 0), 2, ',', '.') ?>
+            | Ativa em 5k (ciclo 1k / 4k se 24h&gt;10k)
+        </span>
     </div>
 
     <div class="ft-stage">
