@@ -9,7 +9,7 @@ use TigerZone\Models\User;
 use TigerZone\Models\Wallet;
 use TigerZone\Models\Ban;
 use TigerZone\Models\Invite;
-use TigerZone\Sms\SmsService;
+use TigerZone\Mail\MailService;
 
 class AuthController extends BaseController
 {
@@ -21,30 +21,24 @@ class AuthController extends BaseController
         return $digits;
     }
 
-    private function toE164(string $digits): string
+    private function maskEmail(string $email): string
     {
-        $cc = (string) config('app.sms.default_country_code', '55');
-        // Se já tem DDI (ex.: 55...), usa como está; caso contrário assume BR
-        if (strlen($digits) >= 12 && str_starts_with($digits, $cc)) {
-            return '+' . $digits;
+        $email = trim($email);
+        if ($email === '' || !str_contains($email, '@')) return $email;
+        [$u, $d] = explode('@', $email, 2);
+        $u = (string) $u;
+        $d = (string) $d;
+        if (strlen($u) <= 2) {
+            $uMasked = substr($u, 0, 1) . '•';
+        } else {
+            $uMasked = substr($u, 0, 1) . str_repeat('•', max(1, strlen($u) - 2)) . substr($u, -1);
         }
-        if (strlen($digits) >= 10 && strlen($digits) <= 11) {
-            return '+' . $cc . $digits;
-        }
-        return '+' . $digits;
+        return $uMasked . '@' . $d;
     }
 
-    private function maskPhone(string $digits): string
+    private function generateEmailToken(): string
     {
-        $len = strlen($digits);
-        if ($len <= 4) return $digits;
-        $tail = substr($digits, -4);
-        return str_repeat('•', max(0, $len - 4)) . $tail;
-    }
-
-    private function generateCode(): string
-    {
-        return (string) random_int(100000, 999999);
+        return bin2hex(random_bytes(16));
     }
 
     public function loginForm(): void
@@ -70,13 +64,12 @@ class AuthController extends BaseController
             flash_set('error', 'E-mail ou senha incorretos.');
             redirect(base_url('/login'));
         }
-
-        // Se SMS estiver habilitado, exige celular confirmado
-        if (config('app.sms.enabled', false) && empty($user['phone_verified_at'])) {
-            $_SESSION['pending_phone_user_id'] = (int) $user['id'];
-            $_SESSION['pending_phone_masked'] = $this->maskPhone((string) ($user['phone'] ?? ''));
-            flash_set('error', 'Confirme seu celular para entrar.');
-            redirect(base_url('/confirmar-celular'));
+        // Exige e-mail confirmado (quando disponível)
+        if ((bool) config('app.email_verification.enabled', true) && $userModel->supportsEmailVerification() && empty($user['email_verified_at'])) {
+            $_SESSION['pending_email_user_id'] = (int) $user['id'];
+            $_SESSION['pending_email_masked'] = $this->maskEmail((string) ($user['email'] ?? ''));
+            flash_set('error', 'Confirme seu e-mail para entrar.');
+            redirect(base_url('/confirmar-email'));
         }
 
         $ban = new Ban();
@@ -145,6 +138,11 @@ class AuthController extends BaseController
             $_SESSION['_old'] = ['email' => $email, 'name' => $name, 'phone' => $phoneRaw, 'ref' => $ref];
             redirect(base_url('/registro'));
         }
+        if ((bool) config('app.email_verification.enabled', true) && !$userModel->supportsEmailVerification()) {
+            flash_set('error', 'Banco desatualizado: aplique a migration `database/migrations/006_email_verification.sql` (confirmação por e-mail) e tente novamente.');
+            $_SESSION['_old'] = ['email' => $email, 'name' => $name, 'phone' => $phoneRaw, 'ref' => $ref];
+            redirect(base_url('/registro'));
+        }
         if ($userModel->findByEmail($email)) {
             flash_set('error', 'Este e-mail já está cadastrado.');
             $_SESSION['_old'] = ['email' => $email, 'name' => $name, 'phone' => $phoneRaw, 'ref' => $ref];
@@ -205,26 +203,37 @@ class AuthController extends BaseController
             );
         }
 
-        // Confirmação de celular (opcional)
-        if (config('app.sms.enabled', false)) {
-            $code = $this->generateCode();
-            $ttl = (int) config('app.sms.code_ttl_minutes', 10);
-            $userModel->setPhoneVerification($userId, $code, $ttl);
-            $to = $this->toE164($phone);
-            $sms = new SmsService();
-            $send = $sms->sendVerificationCode($to, $code);
-            $_SESSION['pending_phone_user_id'] = $userId;
-            $_SESSION['pending_phone_masked'] = $this->maskPhone($phone);
-            $msg = 'Conta criada! Enviamos um código para confirmar seu celular.';
+        // Confirmação por e-mail
+        if ((bool) config('app.email_verification.enabled', true) && $userModel->supportsEmailVerification()) {
+            $token = $this->generateEmailToken();
+            $ttl = (int) config('app.email_verification.token_ttl_minutes', 60);
+            $userModel->setEmailVerification($userId, $token, $ttl);
+            $_SESSION['pending_email_user_id'] = $userId;
+            $_SESSION['pending_email_masked'] = $this->maskEmail($email);
+
+            $verifyUrl = base_url('/confirmar-email/verify?token=' . urlencode($token));
+            $subject = 'Confirme seu e-mail';
+            $brand = (string) config('app.name', 'TigerZone');
+            $html = '<p>Olá!</p>'
+                . '<p>Para confirmar seu e-mail no <strong>' . htmlspecialchars($brand) . '</strong>, clique no link abaixo:</p>'
+                . '<p><a href="' . htmlspecialchars($verifyUrl) . '">' . htmlspecialchars($verifyUrl) . '</a></p>'
+                . '<p>Se preferir, você pode copiar e colar o token na tela de confirmação: <strong>' . htmlspecialchars($token) . '</strong></p>';
+
+            $mail = new MailService();
+            $send = $mail->send($email, $subject, $html);
+            $msg = 'Conta criada! Enviamos um e-mail para confirmação.';
             if (!(bool) $send['success']) {
                 $detail = (string) ($send['error'] ?? '');
-                $msg = 'Conta criada! Não foi possível enviar o SMS agora. Tente reenviar o código.'
+                $msg = 'Conta criada! Não foi possível enviar o e-mail agora. Tente reenviar.'
                     . ($detail ? ' Motivo: ' . $detail : '');
-            } elseif (config('app.sms.driver', 'simulated') === 'simulated' && config('app.sms.show_code_in_flash', false)) {
-                $msg .= ' (SIMULADO: código ' . $code . ')';
+                if ((bool) config('app.email_verification.show_token_in_flash', false)) {
+                    $msg .= ' (TOKEN: ' . $token . ')';
+                }
+            } elseif ((bool) config('app.email_verification.show_token_in_flash', false)) {
+                $msg .= ' (TOKEN: ' . $token . ')';
             }
             flash_set('success', $msg);
-            redirect(base_url('/confirmar-celular'));
+            redirect(base_url('/confirmar-email'));
         }
 
         $_SESSION['user'] = $user;
@@ -232,94 +241,138 @@ class AuthController extends BaseController
         redirect(base_url('/'));
     }
 
-    public function confirmPhoneForm(): void
+    public function confirmEmailForm(): void
     {
         if (auth()) {
             redirect(base_url('/'));
         }
-        $uid = (int) ($_SESSION['pending_phone_user_id'] ?? 0);
+        $uid = (int) ($_SESSION['pending_email_user_id'] ?? 0);
         if ($uid <= 0) {
             redirect(base_url('/login'));
         }
-        $masked = (string) ($_SESSION['pending_phone_masked'] ?? 'seu celular');
-        $this->view('auth.confirm-phone', ['title' => 'Confirmar celular', 'masked_phone' => $masked]);
+        $masked = (string) ($_SESSION['pending_email_masked'] ?? 'seu e-mail');
+        $this->view('auth.confirm-email', ['title' => 'Confirmar e-mail', 'masked_email' => $masked]);
     }
 
-    public function confirmPhone(): void
+    public function confirmEmailFromLink(): void
     {
-        $this->validateCsrf();
-        $uid = (int) ($_SESSION['pending_phone_user_id'] ?? 0);
-        if ($uid <= 0) {
-            redirect(base_url('/login'));
-        }
-        $code = preg_replace('/\D+/', '', (string) ($_POST['code'] ?? '')) ?? '';
-        if (strlen($code) < 4 || strlen($code) > 8) {
-            flash_set('error', 'Código inválido.');
-            redirect(base_url('/confirmar-celular'));
-        }
-
         $userModel = new User();
-        $u = $userModel->findById($uid);
+        $token = (string) ($_GET['token'] ?? '');
+        $token = trim($token);
+        if ($token === '' || strlen($token) < 10) {
+            flash_set('error', 'Token inválido.');
+            redirect(base_url('/confirmar-email'));
+        }
+        $u = $userModel->findByEmailVerificationToken($token);
         if (!$u) {
-            unset($_SESSION['pending_phone_user_id'], $_SESSION['pending_phone_masked']);
-            flash_set('error', 'Sessão expirada.');
-            redirect(base_url('/login'));
+            flash_set('error', 'Token inválido ou expirado.');
+            redirect(base_url('/confirmar-email'));
         }
-
-        $dbCode = (string) ($u['phone_verification_code'] ?? '');
-        $expires = (string) ($u['phone_verification_expires_at'] ?? '');
-        if (!$dbCode || $dbCode !== $code) {
-            flash_set('error', 'Código incorreto.');
-            redirect(base_url('/confirmar-celular'));
-        }
+        $expires = (string) ($u['email_verification_expires_at'] ?? '');
         if ($expires && strtotime($expires) < time()) {
-            flash_set('error', 'Código expirado. Reenvie e tente novamente.');
-            redirect(base_url('/confirmar-celular'));
+            flash_set('error', 'Token expirado. Reenvie e tente novamente.');
+            redirect(base_url('/confirmar-email'));
         }
 
-        $userModel->verifyPhone($uid);
+        $uid = (int) $u['id'];
+        $userModel->verifyEmail($uid);
         $userModel->updateLastLogin($uid, \client_ip());
         $user = $userModel->findById($uid);
-        unset($_SESSION['pending_phone_user_id'], $_SESSION['pending_phone_masked']);
+        unset($_SESSION['pending_email_user_id'], $_SESSION['pending_email_masked']);
         $_SESSION['user'] = $user;
-        flash_set('success', 'Celular confirmado com sucesso!');
+        flash_set('success', 'E-mail confirmado com sucesso!');
         redirect(base_url('/'));
     }
 
-    public function resendPhoneCode(): void
+    public function confirmEmail(): void
     {
         $this->validateCsrf();
-        $uid = (int) ($_SESSION['pending_phone_user_id'] ?? 0);
+        $uid = (int) ($_SESSION['pending_email_user_id'] ?? 0);
         if ($uid <= 0) {
             redirect(base_url('/login'));
+        }
+        $token = trim((string) ($_POST['token'] ?? ''));
+        if ($token === '' || strlen($token) < 10) {
+            flash_set('error', 'Token inválido.');
+            redirect(base_url('/confirmar-email'));
         }
         $userModel = new User();
         $u = $userModel->findById($uid);
         if (!$u) {
-            unset($_SESSION['pending_phone_user_id'], $_SESSION['pending_phone_masked']);
+            unset($_SESSION['pending_email_user_id'], $_SESSION['pending_email_masked']);
             redirect(base_url('/login'));
         }
-        $phone = (string) ($u['phone'] ?? '');
-        if (!$phone) {
-            flash_set('error', 'Celular não encontrado.');
+        $dbToken = (string) ($u['email_verification_token'] ?? '');
+        $expires = (string) ($u['email_verification_expires_at'] ?? '');
+        if (!$dbToken || $dbToken !== $token) {
+            flash_set('error', 'Token incorreto.');
+            redirect(base_url('/confirmar-email'));
+        }
+        if ($expires && strtotime($expires) < time()) {
+            flash_set('error', 'Token expirado. Reenvie e tente novamente.');
+            redirect(base_url('/confirmar-email'));
+        }
+
+        $userModel->verifyEmail($uid);
+        $userModel->updateLastLogin($uid, \client_ip());
+        $user = $userModel->findById($uid);
+        unset($_SESSION['pending_email_user_id'], $_SESSION['pending_email_masked']);
+        $_SESSION['user'] = $user;
+        flash_set('success', 'E-mail confirmado com sucesso!');
+        redirect(base_url('/'));
+    }
+
+    public function resendEmailVerification(): void
+    {
+        $this->validateCsrf();
+        $uid = (int) ($_SESSION['pending_email_user_id'] ?? 0);
+        if ($uid <= 0) {
+            redirect(base_url('/login'));
+        }
+        $userModel = new User();
+        if (!$userModel->supportsEmailVerification()) {
+            flash_set('error', 'Banco desatualizado: aplique a migration `database/migrations/006_email_verification.sql`.');
+            redirect(base_url('/login'));
+        }
+        $u = $userModel->findById($uid);
+        if (!$u) {
+            unset($_SESSION['pending_email_user_id'], $_SESSION['pending_email_masked']);
+            redirect(base_url('/login'));
+        }
+        $email = (string) ($u['email'] ?? '');
+        if ($email === '') {
+            flash_set('error', 'E-mail não encontrado.');
             redirect(base_url('/login'));
         }
 
-        $code = $this->generateCode();
-        $ttl = (int) config('app.sms.code_ttl_minutes', 10);
-        $userModel->setPhoneVerification($uid, $code, $ttl);
-        $sms = new SmsService();
-        $send = $sms->sendVerificationCode($this->toE164($phone), $code);
-        $msg = 'Código reenviado.';
+        $token = $this->generateEmailToken();
+        $ttl = (int) config('app.email_verification.token_ttl_minutes', 60);
+        $userModel->setEmailVerification($uid, $token, $ttl);
+        $_SESSION['pending_email_masked'] = $this->maskEmail($email);
+
+        $verifyUrl = base_url('/confirmar-email/verify?token=' . urlencode($token));
+        $subject = 'Confirme seu e-mail';
+        $brand = (string) config('app.name', 'TigerZone');
+        $html = '<p>Olá!</p>'
+            . '<p>Para confirmar seu e-mail no <strong>' . htmlspecialchars($brand) . '</strong>, clique no link abaixo:</p>'
+            . '<p><a href="' . htmlspecialchars($verifyUrl) . '">' . htmlspecialchars($verifyUrl) . '</a></p>'
+            . '<p>Token: <strong>' . htmlspecialchars($token) . '</strong></p>';
+
+        $mail = new MailService();
+        $send = $mail->send($email, $subject, $html);
+        $msg = 'E-mail reenviado.';
         if (!(bool) $send['success']) {
             $detail = (string) ($send['error'] ?? '');
-            $msg = 'Não foi possível enviar o SMS agora. Tente novamente.'
+            $msg = 'Não foi possível enviar o e-mail agora. Tente novamente.'
                 . ($detail ? ' Motivo: ' . $detail : '');
-        } elseif (config('app.sms.driver', 'simulated') === 'simulated' && config('app.sms.show_code_in_flash', false)) {
-            $msg .= ' (SIMULADO: código ' . $code . ')';
+            if ((bool) config('app.email_verification.show_token_in_flash', false)) {
+                $msg .= ' (TOKEN: ' . $token . ')';
+            }
+        } elseif ((bool) config('app.email_verification.show_token_in_flash', false)) {
+            $msg .= ' (TOKEN: ' . $token . ')';
         }
         flash_set('success', $msg);
-        redirect(base_url('/confirmar-celular'));
+        redirect(base_url('/confirmar-email'));
     }
 
     public function logout(): void

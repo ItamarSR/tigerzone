@@ -41,9 +41,10 @@ $router->get('/login', 'AuthController@loginForm');
 $router->post('/login', 'AuthController@login');
 $router->get('/registro', 'AuthController@registerForm');
 $router->post('/registro', 'AuthController@register');
-$router->get('/confirmar-celular', 'AuthController@confirmPhoneForm');
-$router->post('/confirmar-celular', 'AuthController@confirmPhone');
-$router->post('/confirmar-celular/reenviar', 'AuthController@resendPhoneCode');
+$router->get('/confirmar-email', 'AuthController@confirmEmailForm');
+$router->get('/confirmar-email/verify', 'AuthController@confirmEmailFromLink');
+$router->post('/confirmar-email', 'AuthController@confirmEmail');
+$router->post('/confirmar-email/reenviar', 'AuthController@resendEmailVerification');
 $router->get('/logout', 'AuthController@logout');
 
 // Stats simuladas (AJAX)

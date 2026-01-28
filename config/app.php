@@ -24,23 +24,22 @@ return [
         'fortune_dragon' => ['name' => 'Fortune Dragon', 'slug' => 'fortune-dragon', 'icon' => 'dragon'],
         'fortune_ox' => ['name' => 'Fortune Ox', 'slug' => 'fortune-ox', 'icon' => 'ox'],
     ],
-    // SMS (confirmação de celular). Por padrão é simulado (não envia SMS real).
-    'sms' => [
-        'enabled' => true,
-        'driver' => env('SMS_DRIVER', 'twilio'), // simulated | twilio | zenvia | ...
-        'code_ttl_minutes' => 10,
-        // Em modo simulado, exibe o código no flash (para testes).
-        'show_code_in_flash' => env('SMS_SHOW_CODE_IN_FLASH', false),
-        // País default para normalização (Brasil).
+    // Celular
+    'phone' => [
         'default_country_code' => '55',
-        'twilio' => [
-            'account_sid' => env('TWILIO_ACCOUNT_SID', ''),
-            'auth_token' => env('TWILIO_AUTH_TOKEN', ''),
-            'from' => env('TWILIO_FROM', ''), // Ex.: +14155552671
-        ],
-        'zenvia' => [
-            'api_token' => env('ZENVIA_API_TOKEN', ''),
-            'from' => env('ZENVIA_FROM', ''), // opcional (depende da conta)
-        ],
+    ],
+
+    // Confirmação por e-mail
+    'email_verification' => [
+        'enabled' => true,
+        'token_ttl_minutes' => 60,
+        // Para testes (quando o servidor não envia e-mail), pode exibir o token no flash.
+        'show_token_in_flash' => env('EMAIL_SHOW_TOKEN_IN_FLASH', false),
+    ],
+
+    // Envio de e-mail (usa mail() do PHP).
+    'mail' => [
+        'from_address' => env('MAIL_FROM_ADDRESS', 'no-reply@localhost'),
+        'from_name' => env('MAIL_FROM_NAME', 'TigerZone'),
     ],
 ];

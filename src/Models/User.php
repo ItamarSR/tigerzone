@@ -12,6 +12,7 @@ class User
 {
     private PDO $db;
     private ?bool $phoneColumnsReady = null;
+    private ?bool $emailColumnsReady = null;
 
     public function __construct()
     {
@@ -40,6 +41,27 @@ class User
             return $this->phoneColumnsReady = ((int) $stmt->fetchColumn() > 0);
         } catch (PDOException $e) {
             return $this->phoneColumnsReady = false;
+        }
+    }
+
+    public function supportsEmailVerification(): bool
+    {
+        if ($this->emailColumnsReady !== null) {
+            return $this->emailColumnsReady;
+        }
+        try {
+            $dbName = (string) $this->db->query('SELECT DATABASE()')->fetchColumn();
+            if ($dbName === '') {
+                return $this->emailColumnsReady = false;
+            }
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'email_verification_token'"
+            );
+            $stmt->execute([$dbName]);
+            return $this->emailColumnsReady = ((int) $stmt->fetchColumn() > 0);
+        } catch (PDOException $e) {
+            return $this->emailColumnsReady = false;
         }
     }
 
@@ -165,6 +187,54 @@ class User
     public function isPhoneVerified(array $user): bool
     {
         return !empty($user['phone_verified_at']);
+    }
+
+    public function findByEmailVerificationToken(string $token): ?array
+    {
+        if (!$this->supportsEmailVerification()) {
+            return null;
+        }
+        $stmt = $this->db->prepare('SELECT * FROM users WHERE email_verification_token = ? LIMIT 1');
+        $stmt->execute([$token]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    public function setEmailVerification(int $userId, string $token, int $ttlMinutes): void
+    {
+        if (!$this->supportsEmailVerification()) {
+            return;
+        }
+        $stmt = $this->db->prepare(
+            'UPDATE users
+             SET email_verified_at = NULL,
+                 email_verification_token = ?,
+                 email_verification_expires_at = DATE_ADD(NOW(), INTERVAL ? MINUTE),
+                 updated_at = NOW()
+             WHERE id = ?'
+        );
+        $stmt->execute([$token, $ttlMinutes, $userId]);
+    }
+
+    public function verifyEmail(int $userId): void
+    {
+        if (!$this->supportsEmailVerification()) {
+            return;
+        }
+        $stmt = $this->db->prepare(
+            'UPDATE users
+             SET email_verified_at = NOW(),
+                 email_verification_token = NULL,
+                 email_verification_expires_at = NULL,
+                 updated_at = NOW()
+             WHERE id = ?'
+        );
+        $stmt->execute([$userId]);
+    }
+
+    public function isEmailVerified(array $user): bool
+    {
+        return !empty($user['email_verified_at']);
     }
 
     public function countByIp(string $ip): int

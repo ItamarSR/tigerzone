@@ -37,6 +37,39 @@ function env(string $key, mixed $default = null): mixed
     return $v !== false && $v !== '' ? $v : $default;
 }
 
+/**
+ * Lê configuração do banco (tabela settings).
+ * Retorna $default se o banco não estiver disponível ou a key não existir.
+ */
+function setting(string $key, mixed $default = null): mixed
+{
+    static $settings = null;
+    try {
+        if ($settings === null) {
+            $settings = new \TigerZone\Models\Settings();
+        }
+        $v = $settings->get($key, null);
+        return $v !== null ? $v : $default;
+    } catch (\Throwable $e) {
+        return $default;
+    }
+}
+
+function setting_bool(string $key, bool $default = false): bool
+{
+    $v = setting($key, null);
+    if ($v === null) return $default;
+    if (is_bool($v)) return $v;
+    $s = strtolower(trim((string) $v));
+    return in_array($s, ['1', 'true', 'yes', 'on'], true);
+}
+
+function setting_int(string $key, int $default = 0): int
+{
+    $v = setting($key, null);
+    return $v !== null ? (int) $v : $default;
+}
+
 function base_url(string $path = ''): string
 {
     $base = rtrim((string) (env('APP_URL') ?: config('app.url')), '/');

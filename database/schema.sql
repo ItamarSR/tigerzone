@@ -6,6 +6,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `email` VARCHAR(255) NOT NULL,
+    `email_verified_at` DATETIME NULL,
+    `email_verification_token` VARCHAR(64) NULL,
+    `email_verification_expires_at` DATETIME NULL,
     `password` VARCHAR(255) NOT NULL,
     `name` VARCHAR(120) NOT NULL,
     `phone` VARCHAR(20) NULL,
@@ -24,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `users_email` (`email`),
     UNIQUE KEY `users_phone` (`phone`),
+    UNIQUE KEY `users_email_verification_token` (`email_verification_token`),
     KEY `users_invite_code` (`invite_code`),
     KEY `users_referred_by` (`referred_by`),
     KEY `users_ip` (`ip`),
