@@ -27,7 +27,7 @@ return [
     // SMS (confirmação de celular). Por padrão é simulado (não envia SMS real).
     'sms' => [
         'enabled' => true,
-        'driver' => env('SMS_DRIVER', 'twilio'), // simulated | twilio | ...
+        'driver' => env('SMS_DRIVER', 'twilio'), // simulated | twilio | zenvia | ...
         'code_ttl_minutes' => 10,
         // Em modo simulado, exibe o código no flash (para testes).
         'show_code_in_flash' => env('SMS_SHOW_CODE_IN_FLASH', false),
@@ -37,6 +37,10 @@ return [
             'account_sid' => env('TWILIO_ACCOUNT_SID', ''),
             'auth_token' => env('TWILIO_AUTH_TOKEN', ''),
             'from' => env('TWILIO_FROM', ''), // Ex.: +14155552671
+        ],
+        'zenvia' => [
+            'api_token' => env('ZENVIA_API_TOKEN', ''),
+            'from' => env('ZENVIA_FROM', ''), // opcional (depende da conta)
         ],
     ],
 ];

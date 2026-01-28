@@ -19,6 +19,10 @@ final class SmsService
                 $token = (string) \config('app.sms.twilio.auth_token', '');
                 $from = (string) \config('app.sms.twilio.from', '');
                 $this->gateway = new TwilioSmsGateway($sid, $token, $from);
+            } elseif ($driver === 'zenvia') {
+                $token = (string) \config('app.sms.zenvia.api_token', '');
+                $from = (string) \config('app.sms.zenvia.from', '');
+                $this->gateway = new ZenviaSmsGateway($token, $from);
             } else {
                 $this->gateway = new SimulatedSmsGateway();
             }

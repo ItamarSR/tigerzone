@@ -24,6 +24,7 @@ ob_start();
     <?php
     $sms = $sms_status ?? ['enabled' => false, 'driver' => 'simulated', 'twilio' => ['missing' => []]];
     $missing = $sms['twilio']['missing'] ?? [];
+    $driver = (string) ($sms['driver'] ?? 'simulated');
     ?>
     <div class="form-card" style="max-width:760px; margin-top:1.25rem;">
         <h2 style="margin-top:0;">SMS (Twilio) – Status</h2>
@@ -41,25 +42,41 @@ ob_start();
                         <th>Driver</th>
                         <td><?= htmlspecialchars((string) ($sms['driver'] ?? '')) ?></td>
                     </tr>
-                    <tr>
-                        <th>TWILIO_ACCOUNT_SID</th>
-                        <td><?= !empty($sms['twilio']['account_sid_set']) ? 'OK' : 'FALTANDO' ?></td>
-                    </tr>
-                    <tr>
-                        <th>TWILIO_AUTH_TOKEN</th>
-                        <td><?= !empty($sms['twilio']['auth_token_set']) ? 'OK' : 'FALTANDO' ?></td>
-                    </tr>
-                    <tr>
-                        <th>TWILIO_FROM</th>
-                        <td><?= !empty($sms['twilio']['from_set']) ? 'OK' : 'FALTANDO' ?></td>
-                    </tr>
+                    <?php if ($driver === 'twilio'): ?>
+                        <tr>
+                            <th>TWILIO_ACCOUNT_SID</th>
+                            <td><?= !empty($sms['twilio']['account_sid_set']) ? 'OK' : 'FALTANDO' ?></td>
+                        </tr>
+                        <tr>
+                            <th>TWILIO_AUTH_TOKEN</th>
+                            <td><?= !empty($sms['twilio']['auth_token_set']) ? 'OK' : 'FALTANDO' ?></td>
+                        </tr>
+                        <tr>
+                            <th>TWILIO_FROM</th>
+                            <td><?= !empty($sms['twilio']['from_set']) ? 'OK' : 'FALTANDO' ?></td>
+                        </tr>
+                    <?php elseif ($driver === 'zenvia'): ?>
+                        <tr>
+                            <th>ZENVIA_API_TOKEN</th>
+                            <td><?= !empty($sms['zenvia']['api_token_set']) ? 'OK' : 'FALTANDO' ?></td>
+                        </tr>
+                        <tr>
+                            <th>ZENVIA_FROM</th>
+                            <td><?= !empty($sms['zenvia']['from_set']) ? 'OK' : 'opcional' ?></td>
+                        </tr>
+                    <?php else: ?>
+                        <tr>
+                            <th>Observação</th>
+                            <td>Driver em modo simulado (não envia SMS real).</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
 
-        <?php if (!empty($sms['enabled']) && ($sms['driver'] ?? '') === 'twilio' && !empty($missing)): ?>
+        <?php if (!empty($sms['enabled']) && in_array($driver, ['twilio','zenvia'], true) && !empty($missing)): ?>
             <div class="alert alert-error" style="margin-top:1rem;">
-                Variáveis ausentes para Twilio: <strong><?= htmlspecialchars(implode(', ', $missing)) ?></strong>.
+                Variáveis ausentes para <?= htmlspecialchars(strtoupper($driver)) ?>: <strong><?= htmlspecialchars(implode(', ', $missing)) ?></strong>.
             </div>
         <?php endif; ?>
 
@@ -67,10 +84,15 @@ ob_start();
             Configure no servidor (exemplos):
         </p>
         <pre style="background:rgba(0,0,0,0.25); border:1px solid var(--border); padding:0.75rem; border-radius:10px; overflow:auto; margin:0;">
-SMS_DRIVER=twilio
+SMS_DRIVER=<?= htmlspecialchars($driver === 'zenvia' ? 'zenvia' : 'twilio') ?>
+<?php if ($driver === 'zenvia'): ?>
+ZENVIA_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ZENVIA_FROM= (opcional)
+<?php else: ?>
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_FROM=+14155552671
+<?php endif; ?>
 SMS_SHOW_CODE_IN_FLASH=false
         </pre>
     </div>
