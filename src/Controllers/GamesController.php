@@ -187,13 +187,25 @@ class GamesController extends BaseController
 
             $result = $slot->spinRoulette($columns, $easyMode);
             $reels = $result['reels'] ?? [];
-            // Combinação: valores do meio iguais em todas as colunas visíveis
+            // Combinação: 3 ou mais valores iguais na linha do meio (mesmo com 4/5 colunas)
             $midVals = [];
             foreach ($reels as $col) {
                 $midVals[] = (int) ($col[1] ?? 0);
             }
-            $isCombo = count($midVals) >= 3 && count(array_unique($midVals)) === 1;
-            $basePrize = $isCombo ? (int) ($midVals[0] ?? 0) : 0;
+            $counts = array_count_values($midVals);
+            arsort($counts, SORT_NUMERIC);
+            $maxCount = (int) (reset($counts) ?: 0);
+            $candidates = [];
+            foreach ($counts as $val => $cnt) {
+                if ((int) $cnt === $maxCount) {
+                    $candidates[] = (int) $val;
+                } else {
+                    break;
+                }
+            }
+            rsort($candidates, SORT_NUMERIC); // se empatar, usa o maior prêmio
+            $basePrize = ($maxCount >= 3 && !empty($candidates)) ? (int) $candidates[0] : 0;
+            $isCombo = $basePrize > 0;
 
             $requestedWin = $basePrize > 0 ? round(((float) $basePrize) * $betReais, 2) : 0.0;
             $winReais = $requestedWin;

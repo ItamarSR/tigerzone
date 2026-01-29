@@ -320,20 +320,25 @@
         var reels = data.reels;
 
         if (reels && Array.isArray(reels) && reels.length >= 3) {
-            // repetidos: valores do meio que aparecem 2+ vezes
+            // repetidos: valores do meio que aparecem 2+ vezes (cores mudam: 2=vermelho, 3+=verde)
             var mids = reels.map(function (col) { return parseInt((col && col[1]) || 0, 10) || 0; });
             var counts = {};
             mids.forEach(function (v) { counts[v] = (counts[v] || 0) + 1; });
-            var repeatFlags = mids.map(function (v) { return v && counts[v] > 1; });
+            var repeatClass = mids.map(function (v) {
+                if (!v) return '';
+                if (counts[v] >= 3) return 'repeat-3';
+                if (counts[v] === 2) return 'repeat-2';
+                return '';
+            });
 
-            stopReelsOneByOne(reels, spin, winReais > 0, repeatFlags, function () {
+            stopReelsOneByOne(reels, spin, winReais > 0, repeatClass, function () {
                 // Marca repetidos somente após parar tudo
                 try {
                     getVisibleReels().forEach(function (reelEl, i) {
                         var mid = reelEl.querySelector('.ft-symbol-wrap:nth-child(2) .ft-symbol');
                         if (!mid) return;
-                        mid.classList.remove('repeat');
-                        if (repeatFlags && repeatFlags[i]) mid.classList.add('repeat');
+                        mid.classList.remove('repeat-2', 'repeat-3');
+                        if (repeatClass && repeatClass[i]) mid.classList.add(repeatClass[i]);
                     });
                 } catch (e) {}
 

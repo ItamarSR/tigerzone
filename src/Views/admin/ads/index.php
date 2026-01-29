@@ -40,5 +40,5 @@ function render_ad_preview(string $url, string $file): string {
     </div>
 </div>
 
-<?php $content = ob_get_clean(); require __DIR__ . '/../layouts/admin.php'; ?>
+<?php $content = ob_get_clean(); require __DIR__ . '/../../layouts/admin.php'; ?>
 
