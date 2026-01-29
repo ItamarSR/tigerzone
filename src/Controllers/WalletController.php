@@ -61,8 +61,7 @@ class WalletController extends BaseController
             redirect(base_url('/carteira/deposito'));
         }
         $_SESSION['user']['balance'] = $result['new_balance'];
-        $pool = new PrizePool();
-        $pool->releaseMilestones();
+        // A premiação por depósitos é calculada automaticamente a partir das transações.
         flash_set('success', 'Depósito de ' . config('app.currency_display') . ' ' . number_format($amount, 2, ',', '.') . ' creditado.');
         redirect(base_url('/carteira'));
     }
