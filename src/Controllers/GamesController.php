@@ -208,16 +208,22 @@ class GamesController extends BaseController
             $isCombo = $basePrize > 0;
 
             $requestedWin = $basePrize > 0 ? round(((float) $basePrize) * $betReais, 2) : 0.0;
+            // Ganho base do jogo NÃO é limitado pelo ciclo de premiação
             $winReais = $requestedWin;
-            if ($requestedWin > 0 && $prizePool->isActive()) {
-                $winReais = $prizePool->consumeCycle($requestedWin);
-            }
             $mult = (float) $betReais;
-            $poolBonus = 0;
+            // Bônus do ciclo de premiação (limitado ao orçamento)
+            $poolBonus = 0.0;
             if ($winReais > 0) {
                 // Adiciona ganho em R$ diretamente ao saldo (balance), não aos pontos
                 $addResult = $wallet->add((int) $user['id'], $winReais, 'win', 'GAME:fortune-tiger', ['game_id' => $game['id']]);
                 $afterBalance = $addResult['new_balance'];
+            }
+            if ($isCombo && $prizePool->isActive()) {
+                $poolBonus = $prizePool->consumeCycle($prizePool->getBonusPerCombo());
+                if ($poolBonus > 0) {
+                    $addBonus = $wallet->add((int) $user['id'], $poolBonus, 'bonus', 'PRIZE_CYCLE', ['source' => 'prize_cycle', 'game_id' => $game['id']]);
+                    $afterBalance = $addBonus['new_balance'];
+                }
             }
             $gameModel->logPlay((int) $user['id'], (int) $game['id'], (float) $betReais, (float) $winReais, (float) $beforeBalance, (float) $afterBalance, [
                 'multiplier' => $mult,

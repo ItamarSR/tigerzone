@@ -20,6 +20,7 @@ final class PrizePool
     private const BOOST_24H_DEPOSITS = 10_000.0;
     private const CYCLE_BUDGET_DEFAULT = 1_000.0;
     private const CYCLE_BUDGET_BOOSTED = 4_000.0;
+    private const BONUS_PER_COMBO = 200.0;
     private const KEY_CYCLE_PAID = 'prize_cycle_paid';
 
     private Settings $settings;
@@ -84,6 +85,12 @@ final class PrizePool
         return round(max(0.0, $budget - $paid), 2);
     }
 
+    /** Valor pago por combinação (bônus do ciclo). */
+    public function getBonusPerCombo(): float
+    {
+        return self::BONUS_PER_COMBO;
+    }
+
     /**
      * Consome do orçamento do ciclo (capa o pagamento ao restante).
      * Quando atingir o budget, zera e inicia novo ciclo.
@@ -91,7 +98,7 @@ final class PrizePool
     public function consumeCycle(float $requested): float
     {
         if (!$this->isActive()) {
-            return $requested;
+            return 0.0;
         }
         $requested = round(max(0.0, $requested), 2);
         if ($requested <= 0) return 0.0;
