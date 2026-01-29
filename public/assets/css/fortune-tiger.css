@@ -572,3 +572,47 @@
     50% { filter: brightness(1.35); }
     100% { filter: brightness(1.1); }
 }
+
+/* Mobile refinements */
+@media (max-width: 640px) {
+    .ft-topbar {
+        padding: 0.5rem 0.75rem;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .ft-title { width: 100%; text-align: center; }
+    .ft-balance-wrap { width: 100%; justify-content: center; }
+    .ft-back { width: 100%; text-align: center; }
+
+    .ft-pool-bar {
+        flex-direction: column;
+        gap: 0.25rem;
+        text-align: center;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Em telas pequenas, reduz/oculta tigres para sobrar espaço pro cabinet */
+    .ft-tiger { display: none; }
+    .ft-stage { padding: 0.5rem 0.25rem; }
+
+    .ft-cabinet { max-width: min(520px, 96vw); }
+    .ft-reels { gap: 6px; }
+    .ft-reels.ft-cols-4 { gap: 5px; }
+    .ft-reels.ft-cols-5 { gap: 4px; }
+
+    .ft-controls { padding: 0.5rem 0.75rem; }
+    .ft-play-form { width: 100%; }
+    .ft-bet-row { width: 100%; justify-content: center; }
+    .ft-bet-row input { width: 90px; }
+    .ft-columns-row { width: 100%; justify-content: center; flex-wrap: wrap; }
+    .ft-col-btn { font-size: 0.85rem; }
+    .ft-spin-btn { width: min(320px, 92vw); }
+
+    .ft-bottom { padding: 0.75rem 0.75rem 1rem; }
+}
+
+@media (max-width: 380px) {
+    .ft-symbol-wrap { flex: 0 0 62px; min-height: 62px; }
+    .ft-symbol { min-height: 56px; font-size: 0.8rem; }
+    .ft-reels.ft-cols-5 .ft-symbol { font-size: 0.68rem; }
+}
