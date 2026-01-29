@@ -67,7 +67,7 @@ final class FortuneTigerSlot
     {
         $columns = max(3, min(5, (int) $columns));
         $target = random_int(1, 20);
-        $forceCombo = $easyMode && random_int(1, 100) <= 35;
+        $forceCombo = $easyMode && random_int(1, 100) <= 50;
         $reels = [];
         for ($c = 0; $c < $columns; $c++) {
             $top = random_int(1, 20);

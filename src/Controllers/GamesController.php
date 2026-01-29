@@ -69,9 +69,12 @@ class GamesController extends BaseController
         $pool = $prizePool->getPool();
         $totalDeposits = $prizePool->getTotalDeposits();
         $totalDeposits24h = $prizePool->getTotalDepositsLast24h();
+        $depositsSinceReset = $prizePool->getDepositsSinceReset();
+        $activationTarget = $prizePool->getActivationTarget();
         $settings = new Settings();
         $adLeft = (string) ($settings->get('ad_left_file', '') ?? '');
         $adRight = (string) ($settings->get('ad_right_file', '') ?? '');
+        $adTop = (string) ($settings->get('ad_top_file', '') ?? '');
         $this->view('games.fortune-tiger', [
             'title' => 'Fortune Tiger',
             'game' => $game,
@@ -80,8 +83,11 @@ class GamesController extends BaseController
             'prize_pool' => $pool,
             'total_deposits' => $totalDeposits,
             'total_deposits_24h' => $totalDeposits24h,
+            'deposits_since_reset' => $depositsSinceReset,
+            'activation_target' => $activationTarget,
             'ad_left' => $adLeft,
             'ad_right' => $adRight,
+            'ad_top' => $adTop,
         ]);
     }
 

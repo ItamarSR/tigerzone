@@ -10,18 +10,19 @@ use TigerZone\Models\Wallet;
 /**
  * Pool de prémios por marcos de depósitos.
  * Regras:
- * - A premiação começa quando Depósitos Gerais >= R$ 5.000,00
- * - Distribui até R$ 1.000,00 em premiações por ciclo; ao atingir, zera e começa de novo
- * - Se Depósitos (últimas 24h) > R$ 10.000,00, o ciclo dobra para R$ 4.000,00
+ * - A premiação começa quando Depósitos (desde o último reset) >= R$ 5.000,00
+ * - Orçamento do ciclo: R$ 2.000,00
+ * - Se Depósitos (últimas 24h) > R$ 10.000,00, soma +R$ 1.000,00 ao orçamento (R$ 3.000,00)
+ * - Ao zerar o ciclo, o "depósito para premiação" é resetado e precisa atingir a meta de novo
  */
 final class PrizePool
 {
-    private const ACTIVATION_TOTAL_DEPOSITS = 5_000.0;
+    private const ACTIVATION_TARGET = 5_000.0;
     private const BOOST_24H_DEPOSITS = 10_000.0;
-    private const CYCLE_BUDGET_DEFAULT = 1_000.0;
-    private const CYCLE_BUDGET_BOOSTED = 4_000.0;
+    private const CYCLE_BUDGET_DEFAULT = 2_000.0;
+    private const CYCLE_BUDGET_BOOST_ADD = 1_000.0;
     private const KEY_CYCLE_PAID = 'prize_cycle_paid';
-    private const KEY_EASY_COOLDOWN_UNTIL_TOTAL = 'prize_easy_cooldown_until_total';
+    private const KEY_LAST_RESET_TOTAL_DEPOSITS = 'prize_last_reset_total_deposits';
 
     private Settings $settings;
     private Wallet $wallet;
@@ -48,24 +49,37 @@ final class PrizePool
         return $this->wallet->totalDepositsLastHours(24);
     }
 
+    /** Depósitos desde o último reset do ciclo (para meta de ativação). */
+    public function getDepositsSinceReset(): float
+    {
+        $total = $this->getTotalDeposits();
+        $last = $this->settings->getFloat(self::KEY_LAST_RESET_TOTAL_DEPOSITS, 0.0);
+        $v = $total - $last;
+        return $v > 0 ? round($v, 2) : 0.0;
+    }
+
+    public function getActivationTarget(): float
+    {
+        return self::ACTIVATION_TARGET;
+    }
+
     public function isActive(): bool
     {
-        return $this->getTotalDeposits() >= self::ACTIVATION_TOTAL_DEPOSITS;
+        return $this->getDepositsSinceReset() >= self::ACTIVATION_TARGET;
     }
 
     public function shouldFacilitateCombos(): bool
     {
-        if (!$this->isActive() || $this->getRemainingInCycle() <= 0.0) {
-            return false;
-        }
-        $cooldownUntil = $this->settings->getFloat(self::KEY_EASY_COOLDOWN_UNTIL_TOTAL, 0.0);
-        return $this->getTotalDeposits() >= $cooldownUntil;
+        // Facilita 50% enquanto o ciclo estiver ativo e houver saldo.
+        return $this->isActive() && $this->getRemainingInCycle() > 0.0;
     }
 
     public function getCycleBudget(): float
     {
         $d24 = $this->getTotalDepositsLast24h();
-        return $d24 > self::BOOST_24H_DEPOSITS ? self::CYCLE_BUDGET_BOOSTED : self::CYCLE_BUDGET_DEFAULT;
+        return $d24 > self::BOOST_24H_DEPOSITS
+            ? self::CYCLE_BUDGET_DEFAULT + self::CYCLE_BUDGET_BOOST_ADD
+            : self::CYCLE_BUDGET_DEFAULT;
     }
 
     public function getPaidInCycle(): float
@@ -117,11 +131,8 @@ final class PrizePool
         $cycleCompleted = $newPaid >= $budget - 0.0001;
         if ($cycleCompleted) {
             $newPaid = 0.0; // zera e inicia do zero
-            // Se 1 jogador levou o prêmio total sozinho (ciclo inteiro), desativa "easy mode" até haver mais depósitos
-            if ($startingPaid <= 0.01 && $payout >= $budget - 0.01) {
-                $until = $this->getTotalDeposits() + 1_000.0;
-                $this->settings->set(self::KEY_EASY_COOLDOWN_UNTIL_TOTAL, (string) round($until, 2));
-            }
+            // Ao zerar o ciclo, reseta o "depósito para premiação"
+            $this->settings->set(self::KEY_LAST_RESET_TOTAL_DEPOSITS, (string) round($this->getTotalDeposits(), 2));
         }
         $this->settings->set(self::KEY_CYCLE_PAID, (string) round($newPaid, 2));
         return round($payout, 2);

@@ -7,6 +7,9 @@ $paytable = \TigerZone\Game\FortuneTigerSlot::getPaytable();
 $currency = config('app.currency_display');
 $adLeft = (string) ($ad_left ?? '');
 $adRight = (string) ($ad_right ?? '');
+$adTop = (string) ($ad_top ?? '');
+$depositsSinceReset = (float) ($deposits_since_reset ?? 0);
+$activationTarget = (float) ($activation_target ?? 5000);
 
 function ft_is_video(string $file): bool {
     return strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mp4';
@@ -26,13 +29,19 @@ function ft_is_video(string $file): bool {
         <a href="<?= base_url('/jogos') ?>" class="ft-back">← Voltar</a>
     </header>
 
+    <?php if ($adTop): ?>
+        <div class="ft-ad-top" aria-label="Propaganda topo">
+            <img src="<?= asset('ads/' . $adTop) ?>" alt="Propaganda" class="ft-ad-top-img">
+        </div>
+    <?php endif; ?>
+
     <div class="ft-pool-bar">
         <span class="ft-pool-label">Premiação (ciclo)</span>
         <span class="ft-pool-value"><?= $currency ?> <strong id="ft-prize-pool"><?= number_format((float) $prize_pool, 2, ',', '.') ?></strong></span>
         <span class="ft-pool-deposits">
-            Depósitos gerais: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?>
+            Depósitos p/ premiação: <?= $currency ?> <?= number_format($depositsSinceReset, 2, ',', '.') ?> / <?= $currency ?> <?= number_format($activationTarget, 2, ',', '.') ?>
             | 24h: <?= $currency ?> <?= number_format((float) ($total_deposits_24h ?? 0), 2, ',', '.') ?>
-            | Ativa em 5k (ciclo 1k / 4k se 24h&gt;10k)
+            | Ciclo base 2k (+1k se 24h&gt;10k)
         </span>
     </div>
 
