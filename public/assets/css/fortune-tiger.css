@@ -363,6 +363,7 @@
     display: flex;
     flex-direction: column;
     transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.2, 1);
+    position: relative;
 }
 
 .ft-symbol-wrap {
@@ -373,6 +374,8 @@
     justify-content: center;
     padding: 4px;
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
 }
 
 .ft-symbol {
@@ -412,6 +415,9 @@
     position: relative;
     z-index: 2;
 }
+
+/* Linha principal (meio) acima das demais */
+.ft-symbol-wrap:nth-child(2) { z-index: 3; }
 
 /* Repetidos ficam verdes */
 .ft-symbol.repeat {

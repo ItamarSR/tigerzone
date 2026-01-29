@@ -224,11 +224,6 @@
             spin.stopReel(idx);
             applyReelResult(r, vals);
             if (isWin) r.classList.add('win');
-            // Marca repetidos (linha do meio) em verde
-            var mid = r.querySelector('.ft-symbol-wrap:nth-child(2) .ft-symbol');
-            if (mid) {
-                mid.classList.toggle('repeat', !!(repeatFlags && repeatFlags[idx]));
-            }
             soundStop();
             idx++;
             setTimeout(stopNext, STOP_DELAY_MS);
@@ -332,6 +327,16 @@
             var repeatFlags = mids.map(function (v) { return v && counts[v] > 1; });
 
             stopReelsOneByOne(reels, spin, winReais > 0, repeatFlags, function () {
+                // Marca repetidos somente após parar tudo
+                try {
+                    getVisibleReels().forEach(function (reelEl, i) {
+                        var mid = reelEl.querySelector('.ft-symbol-wrap:nth-child(2) .ft-symbol');
+                        if (!mid) return;
+                        mid.classList.remove('repeat');
+                        if (repeatFlags && repeatFlags[i]) mid.classList.add('repeat');
+                    });
+                } catch (e) {}
+
                 updateBalanceDisplay(data.balance);
                 if (data.prize_pool != null) updatePrizePool(data.prize_pool);
                 prependHistory(winReais, poolBonus);
