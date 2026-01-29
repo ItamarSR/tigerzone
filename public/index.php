@@ -41,6 +41,10 @@ $router->get('/login', 'AuthController@loginForm');
 $router->post('/login', 'AuthController@login');
 $router->get('/registro', 'AuthController@registerForm');
 $router->post('/registro', 'AuthController@register');
+$router->get('/confirmar-email', 'AuthController@confirmEmailForm');
+$router->get('/confirmar-email/verify', 'AuthController@confirmEmailFromLink');
+$router->post('/confirmar-email', 'AuthController@confirmEmail');
+$router->post('/confirmar-email/reenviar', 'AuthController@resendEmailVerification');
 $router->get('/logout', 'AuthController@logout');
 
 // Stats simuladas (AJAX)
@@ -53,7 +57,6 @@ $router->post('/carteira/deposito', 'WalletController@deposit');
 $router->get('/carteira/saque', 'WalletController@withdrawForm');
 $router->post('/carteira/saque', 'WalletController@withdraw');
 $router->get('/carteira/historico', 'WalletController@history');
-$router->post('/api/carteira/convert-points', 'WalletController@convertToPoints');
 
 $router->get('/convites', 'InviteController@index');
 $router->post('/convites/gerar', 'InviteController@generate');
@@ -79,6 +82,8 @@ $router->get('/admin/convites', 'Admin\InvitesController@index');
 $router->get('/admin/banimentos', 'Admin\BansController@index');
 $router->post('/admin/banimentos', 'Admin\BansController@store');
 $router->get('/admin/estatisticas', 'Admin\StatsController@index');
+$router->get('/admin/propagandas', 'Admin\AdsController@index');
+$router->post('/admin/propagandas', 'Admin\AdsController@upload');
 $router->get('/admin/configuracoes', 'Admin\SettingsController@index');
 $router->post('/admin/configuracoes', 'Admin\SettingsController@save');
 $router->get('/admin/administradores', 'Admin\AdminsController@index');

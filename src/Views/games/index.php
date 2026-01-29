@@ -1,5 +1,6 @@
 <?php
 $title = 'Jogos';
+$stars = true;
 ob_start();
 ?>
 <div class="container">
@@ -12,6 +13,9 @@ ob_start();
             <span class="game-cta">Jogar</span>
         </a>
         <?php endforeach; ?>
+        <?php if (empty($games)): ?>
+            <div class="alert alert-error">Nenhum jogo disponível no momento.</div>
+        <?php endif; ?>
     </div>
 </div>
 <?php $content = ob_get_clean(); require __DIR__ . '/../layouts/main.php'; ?>

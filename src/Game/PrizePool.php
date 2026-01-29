@@ -9,15 +9,20 @@ use TigerZone\Models\Wallet;
 
 /**
  * Pool de prémios por marcos de depósitos.
- * 10k → 1.5k, 20k → 4k, 30k → 7.5k, 40k → 12k, …
- * Dividido entre quem está a jogar (bónus por vitória).
+ * Regras:
+ * - A premiação começa quando Depósitos (desde o último reset) >= R$ 5.000,00
+ * - Orçamento do ciclo: R$ 2.000,00
+ * - Se Depósitos (últimas 24h) > R$ 10.000,00, soma +R$ 1.000,00 ao orçamento (R$ 3.000,00)
+ * - Ao zerar o ciclo, o "depósito para premiação" é resetado e precisa atingir a meta de novo
  */
 final class PrizePool
 {
-    private const MILESTONE_STEP = 10_000.0;
-    /** Valores liberados em R$ por marco: 10k→1.5k, 20k→+2.5k, 30k→+3.5k, … */
-    private const RELEASE_BASE = 1_500.0;
-    private const RELEASE_INCREMENT = 1_000.0;
+    private const ACTIVATION_TARGET = 5_000.0;
+    private const BOOST_24H_DEPOSITS = 10_000.0;
+    private const CYCLE_BUDGET_DEFAULT = 2_000.0;
+    private const CYCLE_BUDGET_BOOST_ADD = 1_000.0;
+    private const KEY_CYCLE_PAID = 'prize_cycle_paid';
+    private const KEY_LAST_RESET_TOTAL_DEPOSITS = 'prize_last_reset_total_deposits';
 
     private Settings $settings;
     private Wallet $wallet;
@@ -30,8 +35,8 @@ final class PrizePool
 
     public function getPool(): float
     {
-        $this->releaseMilestones();
-        return $this->settings->getFloat('prize_pool', 0.0);
+        // Para UI: retorna o restante disponível no ciclo (0 se inativo)
+        return $this->getRemainingInCycle();
     }
 
     public function getTotalDeposits(): float
@@ -39,53 +44,97 @@ final class PrizePool
         return $this->wallet->totalDeposits();
     }
 
-    public function getLastMilestone(): float
+    public function getTotalDepositsLast24h(): float
     {
-        return (float) $this->settings->get('prize_pool_last_milestone', '0');
+        return $this->wallet->totalDepositsLastHours(24);
+    }
+
+    /** Depósitos desde o último reset do ciclo (para meta de ativação). */
+    public function getDepositsSinceReset(): float
+    {
+        $total = $this->getTotalDeposits();
+        $last = $this->settings->getFloat(self::KEY_LAST_RESET_TOTAL_DEPOSITS, 0.0);
+        $v = $total - $last;
+        return $v > 0 ? round($v, 2) : 0.0;
+    }
+
+    public function getActivationTarget(): float
+    {
+        return self::ACTIVATION_TARGET;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->getDepositsSinceReset() >= self::ACTIVATION_TARGET;
+    }
+
+    public function shouldFacilitateCombos(): bool
+    {
+        // Facilita 50% enquanto o ciclo estiver ativo e houver saldo.
+        return $this->isActive() && $this->getRemainingInCycle() > 0.0;
+    }
+
+    public function getCycleBudget(): float
+    {
+        $d24 = $this->getTotalDepositsLast24h();
+        return $d24 > self::BOOST_24H_DEPOSITS
+            ? self::CYCLE_BUDGET_DEFAULT + self::CYCLE_BUDGET_BOOST_ADD
+            : self::CYCLE_BUDGET_DEFAULT;
+    }
+
+    public function getPaidInCycle(): float
+    {
+        return $this->settings->getFloat(self::KEY_CYCLE_PAID, 0.0);
+    }
+
+    public function getRemainingInCycle(): float
+    {
+        if (!$this->isActive()) {
+            return 0.0;
+        }
+        $budget = $this->getCycleBudget();
+        $paid = $this->getPaidInCycle();
+        if ($paid < 0) $paid = 0.0;
+        if ($paid >= $budget) {
+            // Se mudou o budget e ficou inconsistente, reinicia
+            $this->settings->set(self::KEY_CYCLE_PAID, '0');
+            return $budget;
+        }
+        return round(max(0.0, $budget - $paid), 2);
     }
 
     /**
-     * Libera pool quando total de depósitos cruza marcos (10k, 20k, …).
+     * Consome do orçamento do ciclo (capa o pagamento ao restante).
+     * Quando atingir o budget, zera e inicia novo ciclo.
      */
-    public function releaseMilestones(): void
+    public function consumeCycle(float $requested): float
     {
-        $total = $this->wallet->totalDeposits();
-        $last = (float) $this->settings->get('prize_pool_last_milestone', '0');
-        $pool = $this->settings->getFloat('prize_pool', 0.0);
-        $next = $last + self::MILESTONE_STEP;
-        if ($total < $next) {
-            return;
+        if (!$this->isActive()) {
+            return 0.0;
         }
-        while ($total >= $next) {
-            $n = (int) ($next / self::MILESTONE_STEP);
-            $release = self::RELEASE_BASE + ($n - 1) * self::RELEASE_INCREMENT;
-            $pool += $release;
-            $last = $next;
-            $next += self::MILESTONE_STEP;
-        }
-        $this->settings->set('prize_pool', (string) round($pool, 2));
-        $this->settings->set('prize_pool_last_milestone', (string) (int) $last);
-    }
+        $requested = round(max(0.0, $requested), 2);
+        if ($requested <= 0) return 0.0;
 
-    /**
-     * Concede bónus do pool a um jogador (em pontos). Retorna pontos adicionados.
-     * Deduz do pool em R$; converte 1 R$ = 10 pts.
-     */
-    public function grantBonusToPlayer(int $userId): int
-    {
-        $this->releaseMilestones();
-        $pool = $this->settings->getFloat('prize_pool', 0.0);
-        if ($pool <= 0) {
-            return 0;
+        $budget = $this->getCycleBudget();
+        $paid = $this->getPaidInCycle();
+        if ($paid < 0) $paid = 0.0;
+        if ($paid >= $budget) {
+            $paid = 0.0;
         }
-        $bonusReal = min($pool * 0.02, 50.0);
-        if ($bonusReal < 0.01) {
-            return 0;
+        $startingPaid = $paid;
+        $remaining = max(0.0, $budget - $paid);
+        if ($remaining <= 0.0) {
+            return 0.0;
         }
-        $bonusPoints = (int) round($bonusReal * Wallet::pointsPerReal());
-        $newPool = max(0.0, $pool - $bonusReal);
-        $this->settings->set('prize_pool', (string) round($newPool, 2));
-        $this->wallet->addPoints($userId, $bonusPoints, 'PRIZE_POOL');
-        return $bonusPoints;
+        $payout = min($requested, $remaining);
+        $newPaid = $paid + $payout;
+        $cycleCompleted = $newPaid >= $budget - 0.0001;
+        if ($cycleCompleted) {
+            $newPaid = 0.0; // zera e inicia do zero
+            // Ao zerar o ciclo, reseta o "depósito para premiação"
+            $this->settings->set(self::KEY_LAST_RESET_TOTAL_DEPOSITS, (string) round($this->getTotalDeposits(), 2));
+        }
+        $this->settings->set(self::KEY_CYCLE_PAID, (string) round($newPaid, 2));
+        return round($payout, 2);
     }
 }

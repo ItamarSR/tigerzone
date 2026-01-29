@@ -7,7 +7,6 @@ namespace TigerZone\Controllers;
 use TigerZone\Models\Wallet;
 use TigerZone\Models\Ban;
 use TigerZone\Game\PrizePool;
-use TigerZone\Payment\SimulatedGateway;
 
 class WalletController extends BaseController
 {
@@ -62,8 +61,7 @@ class WalletController extends BaseController
             redirect(base_url('/carteira/deposito'));
         }
         $_SESSION['user']['balance'] = $result['new_balance'];
-        $pool = new PrizePool();
-        $pool->releaseMilestones();
+        // A premiação por depósitos é calculada automaticamente a partir das transações.
         flash_set('success', 'Depósito de ' . config('app.currency_display') . ' ' . number_format($amount, 2, ',', '.') . ' creditado.');
         redirect(base_url('/carteira'));
     }
@@ -107,35 +105,6 @@ class WalletController extends BaseController
         $this->view('wallet.history', [
             'title' => 'Histórico',
             'transactions' => $transactions,
-        ]);
-    }
-
-    /**
-     * API: converte R$ em pontos (1 R$ = 10 pts). POST amount (R$).
-     */
-    public function convertToPoints(): void
-    {
-        $this->requireAuth();
-        $token = $_POST['_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
-        if (!\TigerZone\Core\Security::validateCsrf($token)) {
-            $this->json(['error' => 'CSRF inválido'], 403);
-        }
-        $amount = (float) str_replace([',', ' '], ['.', ''], $_POST['amount'] ?? '0');
-        if ($amount < 1 || $amount > 10000) {
-            $this->json(['error' => 'Valor entre R$ 1 e R$ 10.000.'], 400);
-        }
-        $user = auth();
-        $wallet = new Wallet();
-        $result = $wallet->convertToPoints((int) $user['id'], $amount);
-        if (!$result['success']) {
-            $this->json(['error' => $result['error'] ?? 'Erro'], 400);
-        }
-        $_SESSION['user']['balance'] = $wallet->getBalance((int) $user['id']);
-        $this->json([
-            'success' => true,
-            'points_added' => $result['points_added'],
-            'balance' => $wallet->getBalance((int) $user['id']),
-            'points' => $wallet->getPoints((int) $user['id']),
         ]);
     }
 }

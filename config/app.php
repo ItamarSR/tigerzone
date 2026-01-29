@@ -24,4 +24,22 @@ return [
         'fortune_dragon' => ['name' => 'Fortune Dragon', 'slug' => 'fortune-dragon', 'icon' => 'dragon'],
         'fortune_ox' => ['name' => 'Fortune Ox', 'slug' => 'fortune-ox', 'icon' => 'ox'],
     ],
+    // Celular
+    'phone' => [
+        'default_country_code' => '55',
+    ],
+
+    // Confirmação por e-mail
+    'email_verification' => [
+        'enabled' => true,
+        'token_ttl_minutes' => 60,
+        // Para testes (quando o servidor não envia e-mail), pode exibir o token no flash.
+        'show_token_in_flash' => env('EMAIL_SHOW_TOKEN_IN_FLASH', false),
+    ],
+
+    // Envio de e-mail (usa mail() do PHP).
+    'mail' => [
+        'from_address' => env('MAIL_FROM_ADDRESS', 'no-reply@localhost'),
+        'from_name' => env('MAIL_FROM_NAME', 'TigerZone'),
+    ],
 ];

@@ -22,6 +22,7 @@
                 <a href="<?= base_url('/admin/convites') ?>">Convites</a>
                 <a href="<?= base_url('/admin/banimentos') ?>">Banimentos</a>
                 <a href="<?= base_url('/admin/estatisticas') ?>">Estatísticas</a>
+                <a href="<?= base_url('/admin/propagandas') ?>">Propagandas</a>
                 <?php if (admin_role() === 'admin'): ?>
                 <a href="<?= base_url('/admin/administradores') ?>">Administradores</a>
                 <?php endif; ?>

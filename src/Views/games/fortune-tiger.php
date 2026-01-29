@@ -5,9 +5,18 @@ $logoUrl = asset('images/logo.png');
 $tigerUrl = asset('images/games/fortune-tiger.png');
 $paytable = \TigerZone\Game\FortuneTigerSlot::getPaytable();
 $currency = config('app.currency_display');
-$pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
+$adLeft = (string) ($ad_left ?? '');
+$adRight = (string) ($ad_right ?? '');
+$adTop = (string) ($ad_top ?? '');
+$depositsSinceReset = (float) ($deposits_since_reset ?? 0);
+$activationTarget = (float) ($activation_target ?? 5000);
+
+function ft_is_video(string $file): bool {
+    return strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mp4';
+}
 ?>
 <div class="ft-page">
+    <canvas id="ft-stars" class="tz-stars" data-starfield="fortune-tiger" aria-hidden="true"></canvas>
     <header class="ft-topbar">
         <a href="<?= base_url('/') ?>" class="ft-logo"><img src="<?= $logoUrl ?>" alt="TigerZone" class="ft-logo-img"></a>
         <h1 class="ft-title">Fortune Tiger</h1>
@@ -16,32 +25,42 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
                 <span class="ft-balance-label">Saldo</span>
                 <span class="ft-balance-value"><?= $currency ?> <strong id="ft-balance"><?= number_format((float) $balance, 2, ',', '.') ?></strong></span>
             </div>
-            <div class="ft-balance ft-points-balance">
-                <span class="ft-balance-label">Pontos</span>
-                <span class="ft-balance-value"><strong id="ft-points"><?= (int) $points ?> pts</strong></span>
-            </div>
-            <div class="ft-convert">
-                <button type="button" class="ft-convert-btn" id="ft-convert-btn">R$ → pts</button>
-                <form class="ft-convert-form" id="ft-convert-form" style="display:none;">
-                    <?= \TigerZone\Core\Security::csrfField() ?>
-                    <input type="number" name="amount" id="ft-convert-amount" min="1" max="10000" step="1" placeholder="R$" title="1 R$ = <?= $pointsRate ?> pts">
-                    <button type="submit" id="ft-convert-submit">Converter</button>
-                </form>
-            </div>
         </div>
         <a href="<?= base_url('/jogos') ?>" class="ft-back">← Voltar</a>
     </header>
 
+    <?php if ($adTop): ?>
+        <div class="ft-ad-top" aria-label="Propaganda topo">
+            <img src="<?= asset('ads/' . $adTop) ?>" alt="Propaganda" class="ft-ad-top-img">
+        </div>
+    <?php endif; ?>
+
     <div class="ft-pool-bar">
-        <span class="ft-pool-label">Pool (depósitos)</span>
+        <span class="ft-pool-label">Premiação (ciclo)</span>
         <span class="ft-pool-value"><?= $currency ?> <strong id="ft-prize-pool"><?= number_format((float) $prize_pool, 2, ',', '.') ?></strong></span>
-        <span class="ft-pool-deposits">Depósitos: <?= $currency ?> <?= number_format((float) $total_deposits, 2, ',', '.') ?> → 10k, 20k, 30k…</span>
+        <span class="ft-pool-deposits">
+            Depósitos p/ premiação: <?= $currency ?> <?= number_format($depositsSinceReset, 2, ',', '.') ?> / <?= $currency ?> <?= number_format($activationTarget, 2, ',', '.') ?>
+            | 24h: <?= $currency ?> <?= number_format((float) ($total_deposits_24h ?? 0), 2, ',', '.') ?>
+            | Ciclo base 2k (+1k se 24h&gt;10k)
+        </span>
     </div>
 
     <div class="ft-stage">
+        <?php if ($adLeft): ?>
+            <aside class="ft-ad ft-ad-left" aria-label="Propaganda">
+                <?php if (ft_is_video($adLeft)): ?>
+                    <video class="ft-ad-media" muted autoplay loop playsinline>
+                        <source src="<?= asset('ads/' . $adLeft) ?>" type="video/mp4">
+                    </video>
+                <?php else: ?>
+                    <img class="ft-ad-media" src="<?= asset('ads/' . $adLeft) ?>" alt="Propaganda">
+                <?php endif; ?>
+            </aside>
+        <?php else: ?>
         <div class="ft-tiger ft-tiger-left" aria-hidden="true">
             <img src="<?= $tigerUrl ?>" alt="" class="ft-tiger-img">
         </div>
+        <?php endif; ?>
 
         <div class="ft-cabinet">
             <div class="ft-cabinet-frame">
@@ -61,9 +80,21 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
             </div>
         </div>
 
+        <?php if ($adRight): ?>
+            <aside class="ft-ad ft-ad-right" aria-label="Propaganda">
+                <?php if (ft_is_video($adRight)): ?>
+                    <video class="ft-ad-media" muted autoplay loop playsinline>
+                        <source src="<?= asset('ads/' . $adRight) ?>" type="video/mp4">
+                    </video>
+                <?php else: ?>
+                    <img class="ft-ad-media" src="<?= asset('ads/' . $adRight) ?>" alt="Propaganda">
+                <?php endif; ?>
+            </aside>
+        <?php else: ?>
         <div class="ft-tiger ft-tiger-right" aria-hidden="true">
             <img src="<?= $tigerUrl ?>" alt="" class="ft-tiger-img">
         </div>
+        <?php endif; ?>
     </div>
 
     <div class="ft-controls">
@@ -72,15 +103,15 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
             <input type="hidden" name="game" value="fortune-tiger">
             <input type="hidden" name="columns" id="ft-columns-input" value="3">
             <div class="ft-bet-row">
-                <label>Aposta (pts) 1×–50×</label>
-                <input type="number" name="bet" id="ft-bet" min="1" max="50" step="1" value="5">
+                <label>Multiplicador (R$) 1–40</label>
+                <input type="number" name="bet" id="ft-bet" min="1" max="40" step="1" value="5">
             </div>
             <div class="ft-columns-row">
                 <span class="ft-columns-label">Colunas</span>
                 <div class="ft-columns-btns">
                     <button type="button" class="ft-col-btn active" data-cols="3">3</button>
-                    <button type="button" class="ft-col-btn" data-cols="4">4 (+100 pts)</button>
-                    <button type="button" class="ft-col-btn" data-cols="5">5 (+200 pts)</button>
+                    <button type="button" class="ft-col-btn" data-cols="4">×50 (<?= $currency ?> 50)</button>
+                    <button type="button" class="ft-col-btn" data-cols="5">×100 (<?= $currency ?> 100)</button>
                 </div>
             </div>
             <button type="submit" class="ft-spin-btn" id="ft-spin">GIRAR</button>
@@ -90,11 +121,11 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
 
     <div class="ft-bottom">
         <div class="ft-paytable">
-            <span class="ft-paytable-title">Prémios (× aposta em pts):</span>
+            <span class="ft-paytable-title">Prémios (× aposta):</span>
             <?php foreach (array_reverse($paytable['values']) as $v): ?>
             <span class="ft-pay-line"><?= $currency ?> <?= $v ?>: ×3→<?= (int) $paytable['pay_3'][$v] ?>× ×4→<?= (int) $paytable['pay_4'][$v] ?>× ×5→<?= (int) $paytable['pay_5'][$v] ?>×</span>
             <?php endforeach; ?>
-            <span class="ft-pay-line ft-pay-2"><?= $currency ?> 20 ×2→1×</span>
+            <span class="ft-pay-line ft-pay-2"><?= $currency ?> 20 ×2→<?= (int) $paytable['pay_2_20'] ?>×</span>
         </div>
         <div class="ft-history-compact">
             <span class="ft-history-label">Últimas</span>
@@ -117,13 +148,21 @@ $pointsRate = \TigerZone\Models\Wallet::pointsPerReal();
 window.FT_CONFIG = {
     currency: '<?= $currency ?>',
     playUrl: '<?= base_url('/api/jogo/play') ?>',
-    convertUrl: '<?= base_url('/api/carteira/convert-points') ?>',
     values: [1, 2, 3, 5, 10, 20],
-    pointsRate: <?= $pointsRate ?>,
     paytable: <?= json_encode($paytable) ?>
+};
+window.STARFIELD_CONFIGS = window.STARFIELD_CONFIGS || {};
+window.STARFIELD_CONFIGS['fortune-tiger'] = {
+    // ponto “principal” do aglomerado de estrelas
+    centerX: 0.55,
+    centerY: 0.35,
+    centerBias: 0.75,
+    speed: 12,
+    twinkle: 0.6
 };
 </script>
 <script src="<?= asset('js/fortune-tiger.js') ?>"></script>
+<script src="<?= asset('js/starfield.js') ?>"></script>
 <?php
 $content = ob_get_clean();
 $styles = '<link rel="stylesheet" href="' . asset('css/fortune-tiger.css') . '">';

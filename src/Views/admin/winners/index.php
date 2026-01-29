@@ -25,8 +25,8 @@ ob_start();
                     <td><?= htmlspecialchars($w['user_name']) ?></td>
                     <td><?= htmlspecialchars($w['user_email']) ?></td>
                     <td><?= htmlspecialchars($w['game_name']) ?></td>
-                    <td><?= number_format((float) $w['bet'], 2, ',', '.') ?> <?= ($w['game_slug'] ?? '') === 'fortune-tiger' ? 'pts' : config('app.currency_display') ?></td>
-                    <td><strong><?= number_format((float) $w['win'], 2, ',', '.') ?> <?= ($w['game_slug'] ?? '') === 'fortune-tiger' ? 'pts' : config('app.currency_display') ?></strong></td>
+                    <td><?= config('app.currency_display') ?> <?= number_format((float) $w['bet'], 2, ',', '.') ?></td>
+                    <td><strong><?= config('app.currency_display') ?> <?= number_format((float) $w['win'], 2, ',', '.') ?></strong></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
