@@ -20,8 +20,8 @@ final class PrizePool
     private const BOOST_24H_DEPOSITS = 10_000.0;
     private const CYCLE_BUDGET_DEFAULT = 1_000.0;
     private const CYCLE_BUDGET_BOOSTED = 4_000.0;
-    private const BONUS_PER_COMBO = 200.0;
     private const KEY_CYCLE_PAID = 'prize_cycle_paid';
+    private const KEY_EASY_COOLDOWN_UNTIL_TOTAL = 'prize_easy_cooldown_until_total';
 
     private Settings $settings;
     private Wallet $wallet;
@@ -55,7 +55,11 @@ final class PrizePool
 
     public function shouldFacilitateCombos(): bool
     {
-        return $this->isActive() && $this->getRemainingInCycle() > 0.0;
+        if (!$this->isActive() || $this->getRemainingInCycle() <= 0.0) {
+            return false;
+        }
+        $cooldownUntil = $this->settings->getFloat(self::KEY_EASY_COOLDOWN_UNTIL_TOTAL, 0.0);
+        return $this->getTotalDeposits() >= $cooldownUntil;
     }
 
     public function getCycleBudget(): float
@@ -85,12 +89,6 @@ final class PrizePool
         return round(max(0.0, $budget - $paid), 2);
     }
 
-    /** Valor pago por combinação (bônus do ciclo). */
-    public function getBonusPerCombo(): float
-    {
-        return self::BONUS_PER_COMBO;
-    }
-
     /**
      * Consome do orçamento do ciclo (capa o pagamento ao restante).
      * Quando atingir o budget, zera e inicia novo ciclo.
@@ -109,14 +107,21 @@ final class PrizePool
         if ($paid >= $budget) {
             $paid = 0.0;
         }
+        $startingPaid = $paid;
         $remaining = max(0.0, $budget - $paid);
         if ($remaining <= 0.0) {
             return 0.0;
         }
         $payout = min($requested, $remaining);
         $newPaid = $paid + $payout;
-        if ($newPaid >= $budget - 0.0001) {
+        $cycleCompleted = $newPaid >= $budget - 0.0001;
+        if ($cycleCompleted) {
             $newPaid = 0.0; // zera e inicia do zero
+            // Se 1 jogador levou o prêmio total sozinho (ciclo inteiro), desativa "easy mode" até haver mais depósitos
+            if ($startingPaid <= 0.01 && $payout >= $budget - 0.01) {
+                $until = $this->getTotalDeposits() + 1_000.0;
+                $this->settings->set(self::KEY_EASY_COOLDOWN_UNTIL_TOTAL, (string) round($until, 2));
+            }
         }
         $this->settings->set(self::KEY_CYCLE_PAID, (string) round($newPaid, 2));
         return round($payout, 2);
