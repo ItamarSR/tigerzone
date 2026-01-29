@@ -82,6 +82,8 @@ $router->get('/admin/convites', 'Admin\InvitesController@index');
 $router->get('/admin/banimentos', 'Admin\BansController@index');
 $router->post('/admin/banimentos', 'Admin\BansController@store');
 $router->get('/admin/estatisticas', 'Admin\StatsController@index');
+$router->get('/admin/propagandas', 'Admin\AdsController@index');
+$router->post('/admin/propagandas', 'Admin\AdsController@upload');
 $router->get('/admin/configuracoes', 'Admin\SettingsController@index');
 $router->post('/admin/configuracoes', 'Admin\SettingsController@save');
 $router->get('/admin/administradores', 'Admin\AdminsController@index');

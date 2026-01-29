@@ -5,6 +5,12 @@ $logoUrl = asset('images/logo.png');
 $tigerUrl = asset('images/games/fortune-tiger.png');
 $paytable = \TigerZone\Game\FortuneTigerSlot::getPaytable();
 $currency = config('app.currency_display');
+$adLeft = (string) ($ad_left ?? '');
+$adRight = (string) ($ad_right ?? '');
+
+function ft_is_video(string $file): bool {
+    return strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mp4';
+}
 ?>
 <div class="ft-page">
     <canvas id="ft-stars" class="tz-stars" data-starfield="fortune-tiger" aria-hidden="true"></canvas>
@@ -31,9 +37,21 @@ $currency = config('app.currency_display');
     </div>
 
     <div class="ft-stage">
+        <?php if ($adLeft): ?>
+            <aside class="ft-ad ft-ad-left" aria-label="Propaganda">
+                <?php if (ft_is_video($adLeft)): ?>
+                    <video class="ft-ad-media" muted autoplay loop playsinline>
+                        <source src="<?= asset('ads/' . $adLeft) ?>" type="video/mp4">
+                    </video>
+                <?php else: ?>
+                    <img class="ft-ad-media" src="<?= asset('ads/' . $adLeft) ?>" alt="Propaganda">
+                <?php endif; ?>
+            </aside>
+        <?php else: ?>
         <div class="ft-tiger ft-tiger-left" aria-hidden="true">
             <img src="<?= $tigerUrl ?>" alt="" class="ft-tiger-img">
         </div>
+        <?php endif; ?>
 
         <div class="ft-cabinet">
             <div class="ft-cabinet-frame">
@@ -53,9 +71,21 @@ $currency = config('app.currency_display');
             </div>
         </div>
 
+        <?php if ($adRight): ?>
+            <aside class="ft-ad ft-ad-right" aria-label="Propaganda">
+                <?php if (ft_is_video($adRight)): ?>
+                    <video class="ft-ad-media" muted autoplay loop playsinline>
+                        <source src="<?= asset('ads/' . $adRight) ?>" type="video/mp4">
+                    </video>
+                <?php else: ?>
+                    <img class="ft-ad-media" src="<?= asset('ads/' . $adRight) ?>" alt="Propaganda">
+                <?php endif; ?>
+            </aside>
+        <?php else: ?>
         <div class="ft-tiger ft-tiger-right" aria-hidden="true">
             <img src="<?= $tigerUrl ?>" alt="" class="ft-tiger-img">
         </div>
+        <?php endif; ?>
     </div>
 
     <div class="ft-controls">

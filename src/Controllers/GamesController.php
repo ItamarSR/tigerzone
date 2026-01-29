@@ -7,6 +7,7 @@ namespace TigerZone\Controllers;
 use TigerZone\Models\Game;
 use TigerZone\Models\Wallet;
 use TigerZone\Models\Ban;
+use TigerZone\Models\Settings;
 use TigerZone\Game\FortuneTigerSlot;
 use TigerZone\Game\PrizePool;
 
@@ -68,6 +69,9 @@ class GamesController extends BaseController
         $pool = $prizePool->getPool();
         $totalDeposits = $prizePool->getTotalDeposits();
         $totalDeposits24h = $prizePool->getTotalDepositsLast24h();
+        $settings = new Settings();
+        $adLeft = (string) ($settings->get('ad_left_file', '') ?? '');
+        $adRight = (string) ($settings->get('ad_right_file', '') ?? '');
         $this->view('games.fortune-tiger', [
             'title' => 'Fortune Tiger',
             'game' => $game,
@@ -76,6 +80,8 @@ class GamesController extends BaseController
             'prize_pool' => $pool,
             'total_deposits' => $totalDeposits,
             'total_deposits_24h' => $totalDeposits24h,
+            'ad_left' => $adLeft,
+            'ad_right' => $adRight,
         ]);
     }
 
